@@ -142,6 +142,7 @@ gps_init(void)
 	nrf_gnss_fix_interval_t fix_interval;
 	nrf_gnss_nmea_mask_t nmea_mask;
 	nrf_gnss_delete_mask_t delete_mask;
+	uint8_t use_case;
 	int error;
 
 	socket = nrf_socket(NRF_AF_LOCAL, NRF_SOCK_DGRAM, NRF_PROTO_GNSS);
@@ -180,6 +181,18 @@ gps_init(void)
 	if (error) {
 		printf("%s: Can't set fix interval: error %d\n",
 		    __func__, error);
+		return (-1);
+	}
+
+	use_case = 1; /* Cold start */
+
+	error = nrf_setsockopt(socket,
+				NRF_SOL_GNSS,
+				NRF_SO_GNSS_USE_CASE,
+				&use_case,
+				sizeof(use_case));
+	if (error) {
+		printf("%s: Can't set USE CASE: error %d\n", __func__, error);
 		return (-1);
 	}
 

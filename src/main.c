@@ -88,9 +88,6 @@ static const char psm_req[] = "AT+CPSMS=1,,,\"00000110\",\"00000000\"";
 /* Request eDRX to be disabled */
 static const char edrx_disable[] = "AT+CEDRXS=3";
 
-static const char magpio[] __unused = "AT\%XMAGPIO=1,0,0,1,1,1574,1577";
-static const char coex0[] __unused = "AT\%XCOEX0=1,1,1570,1580";
-
 
 /*
  * %XSYSTEMMODE=<M1_support>,<NB1_support>,<GNSS_support>,<LTE_preference>
@@ -132,6 +129,70 @@ bsd_recoverable_error_handler(uint32_t error)
 {
 
 	printf("%s: error %d\n", __func__, error);
+}
+
+static void
+sw_ctl(bool gps_enable, bool onboard_antenna)
+{
+	uint32_t reg;
+
+	reg = CNF_DIR_OUT | CNF_INPUT_DIS | CNF_PULL_DOWN;
+
+	/*
+	 * SW1: GPS antenna switch
+	 * 0: u.FL
+	 * 1: MN
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW1_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW1_CTL, 1);
+
+	/*
+	 * SW2: LTE antenna switch
+	 * 0: MN
+	 * 1: u.FL
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW2_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW2_CTL, 1);
+
+	/*
+	 * SW2: Fractus antenna switch
+	 * 0: LTE
+	 * 1: GPS
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW3_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW3_CTL, 1);
+
+	/* GPS Amplifier */
+	nrf_gpio_pincfg(&gpio0_sc, GPS_AMP_EN, reg);
+	nrf_gpio_dirset(&gpio0_sc, GPS_AMP_EN, 1);
+
+	/* LED1 */
+	nrf_gpio_pincfg(&gpio0_sc, PIN_LED1, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_LED1, 1);
+	nrf_gpio_outset(&gpio0_sc, PIN_LED1, 1);
+
+	/* LED2 */
+	nrf_gpio_pincfg(&gpio0_sc, PIN_LED2, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_LED2, 1);
+	nrf_gpio_outset(&gpio0_sc, PIN_LED2, 1);
+
+	if (gps_enable == false) {
+		/* LTE antenna */
+		if (onboard_antenna)
+			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 0);
+		else
+			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 1);
+		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 0);
+	} else {
+		/* GPS antenna */
+		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 1);
+		if (onboard_antenna)
+			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 1);
+		else
+			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 1);
+	}
 }
 
 static int
@@ -381,10 +442,6 @@ lte_connect(void)
 	/* Set new system mode */
 	at_cmd(fd, catm1_gps, AT_CMD_SIZE(catm1_gps));
 
-	/* GPS: nrf9160-DK only. */
-	at_cmd(fd, magpio, AT_CMD_SIZE(magpio));
-	at_cmd(fd, coex0, AT_CMD_SIZE(coex0));
-
 	/* Switch to power saving mode as required for GPS to operate. */
 	at_cmd(fd, psm_req, AT_CMD_SIZE(psm_req));
 
@@ -405,6 +462,9 @@ lte_connect(void)
 		connect_to_server();
 	} else
 		printf("Failed to connect to LTE\n");
+
+	/* Switch to GPS */
+	sw_ctl(true, true);
 
 	mdx_usleep(500000);
 
@@ -435,70 +495,6 @@ nrf_input(int c, void *arg)
 		buffer[buffer_fill++] = c;
 }
 
-static void
-sw_ctl(bool gps_enable, bool onboard_antenna)
-{
-	uint32_t reg;
-
-	reg = CNF_DIR_OUT | CNF_INPUT_DIS | CNF_PULL_DOWN;
-
-	/*
-	 * SW1: GPS antenna switch
-	 * 0: u.FL
-	 * 1: MN
-	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW1_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW1_CTL, 1);
-
-	/*
-	 * SW2: LTE antenna switch
-	 * 0: MN
-	 * 1: u.FL
-	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW2_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW2_CTL, 1);
-
-	/*
-	 * SW2: Fractus antenna switch
-	 * 0: LTE
-	 * 1: GPS
-	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW3_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW3_CTL, 1);
-
-	/* GPS Amplifier */
-	nrf_gpio_pincfg(&gpio0_sc, GPS_AMP_EN, reg);
-	nrf_gpio_dirset(&gpio0_sc, GPS_AMP_EN, 1);
-
-	/* LED1 */
-	nrf_gpio_pincfg(&gpio0_sc, PIN_LED1, reg);
-	nrf_gpio_dirset(&gpio0_sc, PIN_LED1, 1);
-	nrf_gpio_outset(&gpio0_sc, PIN_LED1, 1);
-
-	/* LED2 */
-	nrf_gpio_pincfg(&gpio0_sc, PIN_LED2, reg);
-	nrf_gpio_dirset(&gpio0_sc, PIN_LED2, 1);
-	nrf_gpio_outset(&gpio0_sc, PIN_LED2, 1);
-
-	if (gps_enable == false) {
-		/* LTE antenna */
-		if (onboard_antenna)
-			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 0);
-		else
-			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 1);
-		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 0);
-		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 0);
-	} else {
-		/* GPS antenna */
-		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 1);
-		if (onboard_antenna)
-			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 1);
-		else
-			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 0);
-		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 1);
-	}
-}
-
 int
 main(void)
 {
@@ -512,6 +508,7 @@ main(void)
 
 	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
 
+	/* Switch to LTE */
 	sw_ctl(false, true);
 
 	bsd_init();
