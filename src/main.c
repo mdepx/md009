@@ -45,6 +45,15 @@
 
 #include "gps.h"
 
+#define	GNSS_EPHEMERIDES	(1 << 0)
+#define	GNSS_ALMANAC		(1 << 1)
+#define	GNSS_IONOSPHERIC	(1 << 2)
+#define	GNSS_LGF		(1 << 3) /* Last good fix */
+#define	GNSS_GPS_TOW		(1 << 4) /* Time of week */
+#define	GNSS_GPS_WN		(1 << 5) /* Week number */
+#define	GNSS_LEAP_SECOND	(1 << 6)
+#define	GNSS_LOCAL_CLOCK_FOD	(1 << 7) /* frequency offset data */
+
 #define	LC_MAX_READ_LENGTH	128
 #define	AT_CMD_SIZE(x)		(sizeof(x) - 1)
 
