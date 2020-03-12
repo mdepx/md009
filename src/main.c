@@ -43,6 +43,7 @@
 #include <nrfxlib/bsdlib/include/bsd.h>
 #include <nrfxlib/bsdlib/include/bsd_os.h>
 
+#include "board.h"
 #include "gps.h"
 
 #define	GNSS_EPHEMERIDES	(1 << 0)
@@ -62,6 +63,7 @@
 
 extern struct arm_nvic_softc nvic_sc;
 extern struct nrf_uarte_softc uarte_sc;
+struct nrf_gpio_softc gpio0_sc;
 
 static const char cind[] __unused = "AT+CIND?";
 static const char subscribe[] = "AT+CEREG=5";
@@ -433,6 +435,70 @@ nrf_input(int c, void *arg)
 		buffer[buffer_fill++] = c;
 }
 
+static void
+sw_ctl(bool gps_enable, bool onboard_antenna)
+{
+	uint32_t reg;
+
+	reg = CNF_DIR_OUT | CNF_INPUT_DIS | CNF_PULL_DOWN;
+
+	/*
+	 * SW1: GPS antenna switch
+	 * 0: u.FL
+	 * 1: MN
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW1_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW1_CTL, 1);
+
+	/*
+	 * SW2: LTE antenna switch
+	 * 0: MN
+	 * 1: u.FL
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW2_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW2_CTL, 1);
+
+	/*
+	 * SW2: Fractus antenna switch
+	 * 0: LTE
+	 * 1: GPS
+	 */
+	nrf_gpio_pincfg(&gpio0_sc, SW3_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, SW3_CTL, 1);
+
+	/* GPS Amplifier */
+	nrf_gpio_pincfg(&gpio0_sc, GPS_AMP_EN, reg);
+	nrf_gpio_dirset(&gpio0_sc, GPS_AMP_EN, 1);
+
+	/* LED1 */
+	nrf_gpio_pincfg(&gpio0_sc, PIN_LED1, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_LED1, 1);
+	nrf_gpio_outset(&gpio0_sc, PIN_LED1, 1);
+
+	/* LED2 */
+	nrf_gpio_pincfg(&gpio0_sc, PIN_LED2, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_LED2, 1);
+	nrf_gpio_outset(&gpio0_sc, PIN_LED2, 1);
+
+	if (gps_enable == false) {
+		/* LTE antenna */
+		if (onboard_antenna)
+			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 0);
+		else
+			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 1);
+		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 0);
+	} else {
+		/* GPS antenna */
+		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 1);
+		if (onboard_antenna)
+			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 1);
+		else
+			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 1);
+	}
+}
+
 int
 main(void)
 {
@@ -443,6 +509,10 @@ main(void)
 	arm_nvic_setup_intr(&nvic_sc, ID_IPC,  ipc_proxy_intr,   NULL);
 	arm_nvic_set_prio(&nvic_sc, ID_IPC, 6);
 	nrf_uarte_register_callback(&uarte_sc, nrf_input, NULL);
+
+	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
+
+	sw_ctl(false, true);
 
 	bsd_init();
 

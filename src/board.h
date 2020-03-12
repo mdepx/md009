@@ -31,4 +31,11 @@
 #define	UART_PIN_RX		15
 #define	UART_BAUDRATE		115200
 
+#define	PIN_LED1		30
+#define	PIN_LED2		31
+#define	SW1_CTL			27
+#define	SW2_CTL			28
+#define	SW3_CTL			26
+#define	GPS_AMP_EN		29
+
 #endif /* !_SRC_BOARD_H_ */
