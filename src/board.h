@@ -33,9 +33,14 @@
 
 #define	PIN_LED1		30
 #define	PIN_LED2		31
-#define	SW1_CTL			27
-#define	SW2_CTL			28
-#define	SW3_CTL			26
-#define	GPS_AMP_EN		29
+#define	PIN_SW1_CTL		27
+#define	PIN_SW2_CTL		28
+#define	PIN_SW3_CTL		26
+#define	PIN_GPS_AMP_EN		29
+
+#define	PIN_MC_SCL		4
+#define	PIN_MC_SDA		2
+#define	PIN_MC_INTA		1
+#define	PIN_MC_INTM		0
 
 #endif /* !_SRC_BOARD_H_ */

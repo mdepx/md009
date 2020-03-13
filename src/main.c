@@ -143,28 +143,28 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 0: u.FL
 	 * 1: MN
 	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW1_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW1_CTL, 1);
+	nrf_gpio_pincfg(&gpio0_sc, PIN_SW1_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_SW1_CTL, 1);
 
 	/*
 	 * SW2: LTE antenna switch
 	 * 0: MN
 	 * 1: u.FL
 	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW2_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW2_CTL, 1);
+	nrf_gpio_pincfg(&gpio0_sc, PIN_SW2_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_SW2_CTL, 1);
 
 	/*
 	 * SW2: Fractus antenna switch
 	 * 0: LTE
 	 * 1: GPS
 	 */
-	nrf_gpio_pincfg(&gpio0_sc, SW3_CTL, reg);
-	nrf_gpio_dirset(&gpio0_sc, SW3_CTL, 1);
+	nrf_gpio_pincfg(&gpio0_sc, PIN_SW3_CTL, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_SW3_CTL, 1);
 
 	/* GPS Amplifier */
-	nrf_gpio_pincfg(&gpio0_sc, GPS_AMP_EN, reg);
-	nrf_gpio_dirset(&gpio0_sc, GPS_AMP_EN, 1);
+	nrf_gpio_pincfg(&gpio0_sc, PIN_GPS_AMP_EN, reg);
+	nrf_gpio_dirset(&gpio0_sc, PIN_GPS_AMP_EN, 1);
 
 	/* LED1 */
 	nrf_gpio_pincfg(&gpio0_sc, PIN_LED1, reg);
@@ -179,19 +179,19 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	if (gps_enable == false) {
 		/* LTE antenna */
 		if (onboard_antenna)
-			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 0);
+			nrf_gpio_outset(&gpio0_sc, PIN_SW2_CTL, 0);
 		else
-			nrf_gpio_outset(&gpio0_sc, SW2_CTL, 1);
-		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 0);
-		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 0);
+			nrf_gpio_outset(&gpio0_sc, PIN_SW2_CTL, 1);
+		nrf_gpio_outset(&gpio0_sc, PIN_SW3_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, PIN_GPS_AMP_EN, 0);
 	} else {
 		/* GPS antenna */
-		nrf_gpio_outset(&gpio0_sc, SW3_CTL, 1);
+		nrf_gpio_outset(&gpio0_sc, PIN_SW3_CTL, 1);
 		if (onboard_antenna)
-			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 1);
+			nrf_gpio_outset(&gpio0_sc, PIN_SW1_CTL, 1);
 		else
-			nrf_gpio_outset(&gpio0_sc, SW1_CTL, 0);
-		nrf_gpio_outset(&gpio0_sc, GPS_AMP_EN, 1);
+			nrf_gpio_outset(&gpio0_sc, PIN_SW1_CTL, 0);
+		nrf_gpio_outset(&gpio0_sc, PIN_GPS_AMP_EN, 1);
 	}
 }
 
