@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018-2020 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2020 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,60 +34,27 @@
 #include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
 
+#include <dev/mc6470/mc6470.h>
+
 #include "board.h"
+#include "sensor.h"
 
-struct arm_nvic_softc nvic_sc;
-
-struct nrf_spu_softc spu_sc;
-struct nrf_uarte_softc uarte_sc;
-struct nrf_power_softc power_sc;
-struct nrf_timer_softc timer0_sc;
-struct nrf_twim_softc twim1_sc;
-
-static void
-uart_putchar(int c, void *arg)
-{
-	struct nrf_uarte_softc *sc;
- 
-	sc = arg;
- 
-	if (c == '\n')
-		nrf_uarte_putc(sc, '\r');
-
-	nrf_uarte_putc(sc, c);
-}
+extern struct nrf_twim_softc twim1_sc;
+static struct mc6470_dev dev;
+static struct i2c_bus i2cb;
 
 void
-board_init(void)
+sensor_init(void)
 {
-	struct nrf_twim_conf conf;
+	uint8_t val;
 
-	nrf_uarte_init(&uarte_sc, BASE_UARTE0,
-	    UART_PIN_TX, UART_PIN_RX, UART_BAUDRATE);
-	mdx_console_register(uart_putchar, (void *)&uarte_sc);
+	i2cb.xfer = nrf_twim_xfer;
+	i2cb.arg = &twim1_sc;
 
-	mdx_fl_init();
-	mdx_fl_add_region(0x20030000, 0x10000);
+	dev.i2cb = &i2cb;
 
-	nrf_power_init(&power_sc, BASE_POWER);
-	nrf_timer_init(&timer0_sc, BASE_TIMER0, 1000000);
+	mc6470_set_freq(&dev, 0x08);
+	mc6470_read_reg(&dev, MC6470_SRTFR, &val);
 
-	arm_nvic_init(&nvic_sc, BASE_SCS);
-
-	arm_nvic_setup_intr(&nvic_sc, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
-	arm_nvic_setup_intr(&nvic_sc, ID_TIMER0, nrf_timer_intr, &timer0_sc);
-	arm_nvic_setup_intr(&nvic_sc, ID_TWIM1, nrf_twim_intr, &twim1_sc);
-
-	arm_nvic_enable_intr(&nvic_sc, ID_TIMER0);
-	arm_nvic_enable_intr(&nvic_sc, ID_UARTE0);
-	arm_nvic_enable_intr(&nvic_sc, ID_TWIM1);
-
-	conf.freq = TWIM_FREQ_K250;
-	conf.pin_scl = PIN_MC_SCL;
-	conf.pin_sda = PIN_MC_SDA;
-
-	nrf_twim_init(&twim1_sc, BASE_TWIM1);
-	nrf_twim_setup(&twim1_sc, &conf);
-
-	printf("mdepx initialized\n");
+	printf("%s: val %x\n", __func__, val);
 }
