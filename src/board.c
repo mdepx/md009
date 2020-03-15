@@ -82,7 +82,7 @@ board_init(void)
 	arm_nvic_enable_intr(&nvic_sc, ID_UARTE0);
 	arm_nvic_enable_intr(&nvic_sc, ID_TWIM1);
 
-	conf.freq = TWIM_FREQ_K250;
+	conf.freq = TWIM_FREQ_K100;
 	conf.pin_scl = PIN_MC_SCL;
 	conf.pin_sda = PIN_MC_SDA;
 

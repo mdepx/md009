@@ -46,6 +46,7 @@ static struct i2c_bus i2cb;
 void
 sensor_init(void)
 {
+	uint8_t reg;
 	uint8_t val;
 
 	i2cb.xfer = nrf_twim_xfer;
@@ -53,8 +54,25 @@ sensor_init(void)
 
 	dev.i2cb = &i2cb;
 
-	mc6470_set_freq(&dev, 0x08);
-	mc6470_read_reg(&dev, MC6470_SRTFR, &val);
+	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_STANDBY);
+	mdx_usleep(10000);
 
+	mc6470_write_reg(&dev, MC6470_SRTFR, SRTFR_RATE_64HZ);
+	mc6470_read_reg(&dev, MC6470_SRTFR, &val);
 	printf("%s: val %x\n", __func__, val);
+
+	reg = TAPEN_TAPXPEN | TAPEN_TAPXNEN | TAPEN_TAP_EN | TAPEN_THRDUR;
+	mc6470_write_reg(&dev, MC6470_TAPEN, reg);
+	mc6470_write_reg(&dev, MC6470_TTTRX, 4);
+	mc6470_write_reg(&dev, MC6470_TTTRY, 4);
+	mc6470_write_reg(&dev, MC6470_TTTRZ, 4);
+	mc6470_write_reg(&dev, MC6470_OUTCFG, OUTCFG_RANGE_2G);
+	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_WAKE);
+	mdx_usleep(10000);
+
+	while (1) {
+		mc6470_read_reg(&dev, MC6470_SR, &val);
+		if (val != 0 && val != 0x80)
+			printf("%s: sr %x\n", __func__, val);
+	}
 }
