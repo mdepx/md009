@@ -28,5 +28,6 @@
 #define	_SRC_SENSOR_H_
 
 void sensor_init(void);
+void mc6470_intr(void *arg, struct trapframe *frame, int irq);
 
 #endif /* !_SRC_SENSOR_H_ */

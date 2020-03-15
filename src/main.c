@@ -44,6 +44,7 @@
 #include <nrfxlib/bsdlib/include/bsd_os.h>
 
 #include "board.h"
+#include "sensor.h"
 #include "gps.h"
 
 #define	GNSS_EPHEMERIDES	(1 << 0)
@@ -63,7 +64,7 @@
 
 extern struct arm_nvic_softc nvic_sc;
 extern struct nrf_uarte_softc uarte_sc;
-struct nrf_gpio_softc gpio0_sc;
+extern struct nrf_gpio_softc gpio0_sc;
 
 static const char cind[] __unused = "AT+CIND?";
 static const char subscribe[] = "AT+CEREG=5";
@@ -506,8 +507,6 @@ main(void)
 	arm_nvic_set_prio(&nvic_sc, ID_IPC, 6);
 	nrf_uarte_register_callback(&uarte_sc, nrf_input, NULL);
 
-	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
-
 	/* Switch to LTE */
 	sw_ctl(false, true);
 
@@ -518,6 +517,7 @@ main(void)
 	buffer_fill = 0;
 	ready_to_send = 0;
 
+	sensor_init();
 	lte_connect();
 
 	error = gps_init();

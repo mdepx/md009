@@ -35,6 +35,7 @@
 #include <arm/nordicsemi/nrf9160.h>
 
 #include "board.h"
+#include "sensor.h"
 
 struct arm_nvic_softc nvic_sc;
 
@@ -43,6 +44,8 @@ struct nrf_uarte_softc uarte_sc;
 struct nrf_power_softc power_sc;
 struct nrf_timer_softc timer0_sc;
 struct nrf_twim_softc twim1_sc;
+struct nrf_gpio_softc gpio0_sc;
+struct nrf_gpiote_softc gpiote1_sc;
 
 static void
 uart_putchar(int c, void *arg)
@@ -61,6 +64,7 @@ void
 board_init(void)
 {
 	struct nrf_twim_conf conf;
+	struct nrf_gpiote_conf gconf;
 
 	nrf_uarte_init(&uarte_sc, BASE_UARTE0,
 	    UART_PIN_TX, UART_PIN_RX, UART_BAUDRATE);
@@ -71,16 +75,20 @@ board_init(void)
 
 	nrf_power_init(&power_sc, BASE_POWER);
 	nrf_timer_init(&timer0_sc, BASE_TIMER0, 1000000);
+	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
+	nrf_gpiote_init(&gpiote1_sc, BASE_GPIOTE1);
 
 	arm_nvic_init(&nvic_sc, BASE_SCS);
 
 	arm_nvic_setup_intr(&nvic_sc, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
 	arm_nvic_setup_intr(&nvic_sc, ID_TIMER0, nrf_timer_intr, &timer0_sc);
 	arm_nvic_setup_intr(&nvic_sc, ID_TWIM1, nrf_twim_intr, &twim1_sc);
+	arm_nvic_setup_intr(&nvic_sc, ID_GPIOTE1, nrf_gpiote_intr, &gpiote1_sc);
 
 	arm_nvic_enable_intr(&nvic_sc, ID_TIMER0);
 	arm_nvic_enable_intr(&nvic_sc, ID_UARTE0);
 	arm_nvic_enable_intr(&nvic_sc, ID_TWIM1);
+	arm_nvic_enable_intr(&nvic_sc, ID_GPIOTE1);
 
 	conf.freq = TWIM_FREQ_K100;
 	conf.pin_scl = PIN_MC_SCL;
@@ -88,6 +96,15 @@ board_init(void)
 
 	nrf_twim_init(&twim1_sc, BASE_TWIM1);
 	nrf_twim_setup(&twim1_sc, &conf);
+
+	nrf_gpio_pincfg(&gpio0_sc, PIN_MC_INTA, 0);
+	nrf_gpio_dirset(&gpio0_sc, PIN_MC_INTA, 0);
+
+	/* Configure GPIOTE for mc6470. */
+	gconf.pol = GPIOTE_POLARITY_HITOLO;
+	gconf.mode = GPIOTE_MODE_EVENT;
+	gconf.pin = PIN_MC_INTA;
+	nrf_gpiote_config(&gpiote1_sc, MC6470_GPIOTE_CFG_ID, &gconf);
 
 	printf("mdepx initialized\n");
 }

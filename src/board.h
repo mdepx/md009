@@ -43,4 +43,6 @@
 #define	PIN_MC_INTA		1
 #define	PIN_MC_INTM		0
 
+#define	MC6470_GPIOTE_CFG_ID	0
+
 #endif /* !_SRC_BOARD_H_ */

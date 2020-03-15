@@ -30,6 +30,7 @@
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/thread.h>
+#include <sys/sem.h>
 
 #include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
@@ -40,19 +41,53 @@
 #include "sensor.h"
 
 extern struct nrf_twim_softc twim1_sc;
+extern struct nrf_gpiote_softc gpiote1_sc;
+
 static struct mc6470_dev dev;
 static struct i2c_bus i2cb;
+static mdx_sem_t sem;
+
+void
+mc6470_intr(void *arg, struct trapframe *frame, int irq)
+{
+
+	mdx_sem_post(&sem);
+}
+
+static void
+mc6470_thread(void *arg)
+{
+	uint8_t val;
+
+	while (1) {
+		mdx_sem_wait(&sem);
+
+		printf("%s: event received\n", __func__);
+
+		/* Ack the event by reading SR register. */
+		mc6470_read_reg(&dev, MC6470_SR, &val);
+	}
+}
 
 void
 sensor_init(void)
 {
-	uint8_t reg;
+	struct thread *td;
 	uint8_t val;
+	uint8_t reg;
 
 	i2cb.xfer = nrf_twim_xfer;
 	i2cb.arg = &twim1_sc;
 
 	dev.i2cb = &i2cb;
+
+	mdx_sem_init(&sem, 0);
+	td = mdx_thread_create("mc6470", 1, 0, 4096, mc6470_thread, NULL);
+	mdx_sched_add(td);
+
+	nrf_gpiote_setup_intr(&gpiote1_sc, MC6470_GPIOTE_CFG_ID,
+	    mc6470_intr, NULL);
+	nrf_gpiote_intctl(&gpiote1_sc, MC6470_GPIOTE_CFG_ID, true);
 
 	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_STANDBY);
 	mdx_usleep(10000);
@@ -61,6 +96,7 @@ sensor_init(void)
 	mc6470_read_reg(&dev, MC6470_SRTFR, &val);
 	printf("%s: val %x\n", __func__, val);
 
+	mc6470_write_reg(&dev, MC6470_INTEN, INTEN_TIXPEN | INTEN_TIXNEN);
 	reg = TAPEN_TAPXPEN | TAPEN_TAPXNEN | TAPEN_TAP_EN | TAPEN_THRDUR;
 	mc6470_write_reg(&dev, MC6470_TAPEN, reg);
 	mc6470_write_reg(&dev, MC6470_TTTRX, 4);
@@ -70,9 +106,6 @@ sensor_init(void)
 	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_WAKE);
 	mdx_usleep(10000);
 
-	while (1) {
-		mc6470_read_reg(&dev, MC6470_SR, &val);
-		if (val != 0 && val != 0x80)
-			printf("%s: sr %x\n", __func__, val);
-	}
+	/* Ack any stale events by reading SR register. */
+	mc6470_read_reg(&dev, MC6470_SR, &val);
 }
