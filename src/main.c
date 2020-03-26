@@ -46,6 +46,7 @@
 #include "board.h"
 #include "sensor.h"
 #include "gps.h"
+#include "mqtt.h"
 
 #define	GNSS_EPHEMERIDES	(1 << 0)
 #define	GNSS_ALMANAC		(1 << 1)
@@ -58,9 +59,6 @@
 
 #define	LC_MAX_READ_LENGTH	128
 #define	AT_CMD_SIZE(x)		(sizeof(x) - 1)
-
-#define	TCP_HOST	"machdep.com"
-#define	TCP_PORT	80
 
 extern struct arm_nvic_softc nvic_sc;
 extern struct nrf_uarte_softc uarte_sc;
@@ -296,52 +294,6 @@ lte_at_client(void *arg)
 	}
 }
 
-static void
-connect_to_server(void)
-{
-	struct nrf_addrinfo *server_addr;
-	struct nrf_sockaddr_in local_addr;
-	struct nrf_sockaddr_in *s;
-	uint8_t *ip;
-	int err;
-	int fd;
-
-	fd = nrf_socket(NRF_AF_INET, NRF_SOCK_STREAM, 0);
-	if (fd < 0)
-		panic("failed to create socket");
-
-	err = nrf_getaddrinfo(TCP_HOST, NULL, NULL, &server_addr);
-	if (err != 0)
-		panic("getaddrinfo failed with error %d\n", err);
-
-	s = (struct nrf_sockaddr_in *)server_addr->ai_addr;
-	ip = (uint8_t *)&(s->sin_addr.s_addr);
-	printf("Server IP address: %d.%d.%d.%d\n",
-	    ip[0], ip[1], ip[2], ip[3]);
-
-	s->sin_port = nrf_htons(TCP_PORT);
-	s->sin_len = sizeof(struct nrf_sockaddr_in);
-
-	bzero(&local_addr, sizeof(struct nrf_sockaddr_in));
-	local_addr.sin_family = NRF_AF_INET;
-	local_addr.sin_port = nrf_htons(0);
-	local_addr.sin_addr.s_addr = 0;
-	local_addr.sin_len = sizeof(struct nrf_sockaddr_in);
-
-	err = nrf_bind(fd, (struct nrf_sockaddr *)&local_addr,
-	    sizeof(local_addr));
-	if (err != 0)
-		panic("Bind failed: %d\n", err);
-
-	printf("Connecting to server...\n");
-	err = nrf_connect(fd, s,
-	    sizeof(struct nrf_sockaddr_in));
-	if (err != 0)
-		panic("TCP connect failed: err %d\n", err);
-
-	printf("Successfully connected to the server\n");
-}
-
 static int __unused
 check_ipaddr(char *buf)
 {
@@ -460,7 +412,7 @@ lte_connect(void)
 
 	if (lte_wait(fd) == 0) {
 		printf("LTE connected\n");
-		connect_to_server();
+		mqtt_test();
 	} else
 		printf("Failed to connect to LTE\n");
 
