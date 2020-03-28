@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018-2020 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2020 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,8 +25,10 @@
  */
 
 #include <sys/cdefs.h>
-#include <mbedtls/platform_util.h>
+
 #include <mbedtls/entropy.h>
+#include <mbedtls/entropy_poll.h>
+#include <mbedtls/platform_util.h>
 
 void
 mbedtls_platform_zeroize(void *buf, size_t len)
@@ -35,35 +37,16 @@ mbedtls_platform_zeroize(void *buf, size_t len)
 	memset(buf, 0, len);
 }
 
-#if 0
-int
-mbedtls_entropy_func(void *data, unsigned char *output, size_t len)
-{
-
-	/* TODO */
-
-	printf("%s: data %p len %d\n", __func__, data, len);
-
-	memcpy(output, (void *)(0x20020000 + len), len);
-
-	return (0);
-}
-#endif
-
-int mbedtls_platform_entropy_poll( void *data,
-    unsigned char *output, size_t len, size_t *olen );
-
 int
 mbedtls_platform_entropy_poll( void *data,
     unsigned char *output, size_t len, size_t *olen )
 {
 
-	*olen = 0;
+	/* TODO */
 
-	if(len < sizeof(unsigned char))
-		return( 0 );
+	printf("%s: len %d\n", __func__, len);
 
-	*olen = sizeof(unsigned char);
+	*olen = len;
 
 	return (0);
 }
