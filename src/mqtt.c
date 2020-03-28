@@ -38,7 +38,6 @@
 
 static struct mqtt_client client;
 static int client_connect(struct mqtt_client *c);
-static struct nrf_addrinfo *server_addr;
 
 #define	TCP_HOST	"test.mosquitto.org"
 #define	TCP_PORT	1883
@@ -51,6 +50,7 @@ static mdx_sem_t sem_reconn;
 static int
 mqtt_fd(void)
 {
+	struct nrf_addrinfo *server_addr;
 	int err;
 	int fd;
 
