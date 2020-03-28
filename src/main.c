@@ -47,6 +47,7 @@
 #include "sensor.h"
 #include "gps.h"
 #include "mqtt.h"
+#include "tls.h"
 
 #define	GNSS_EPHEMERIDES	(1 << 0)
 #define	GNSS_ALMANAC		(1 << 1)
@@ -412,6 +413,7 @@ lte_connect(void)
 
 	if (lte_wait(fd) == 0) {
 		printf("LTE connected\n");
+		tls_test();
 		mqtt_test();
 	} else
 		printf("Failed to connect to LTE\n");

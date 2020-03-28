@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018-2020 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2020 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,46 +24,9 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#include <mbedtls/platform_util.h>
-#include <mbedtls/entropy.h>
+#ifndef _SRC_TLS_H_
+#define	_SRC_TLS_H_
 
-void
-mbedtls_platform_zeroize(void *buf, size_t len)
-{
+int tls_test(void);
 
-	memset(buf, 0, len);
-}
-
-#if 0
-int
-mbedtls_entropy_func(void *data, unsigned char *output, size_t len)
-{
-
-	/* TODO */
-
-	printf("%s: data %p len %d\n", __func__, data, len);
-
-	memcpy(output, (void *)(0x20020000 + len), len);
-
-	return (0);
-}
-#endif
-
-int mbedtls_platform_entropy_poll( void *data,
-    unsigned char *output, size_t len, size_t *olen );
-
-int
-mbedtls_platform_entropy_poll( void *data,
-    unsigned char *output, size_t len, size_t *olen )
-{
-
-	*olen = 0;
-
-	if(len < sizeof(unsigned char))
-		return( 0 );
-
-	*olen = sizeof(unsigned char);
-
-	return (0);
-}
+#endif /* !_SRC_TLS_H_ */
