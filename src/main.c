@@ -276,9 +276,11 @@ lte_at_client(void *arg)
 	int fd;
 	int len;
 
-	fd = nrf_socket(NRF_AF_LTE, 0, NRF_PROTO_AT);
-	if (fd < 0)
+	fd = nrf_socket(NRF_AF_LTE, NRF_SOCK_DGRAM, NRF_PROTO_AT);
+	if (fd < 0) {
 		printf("failed to create socket\n");
+		return;
+	}
 
 	while (1) {
 		if (ready_to_send) {
@@ -379,7 +381,7 @@ lte_connect(void)
 {
 	int fd;
 
-	fd = nrf_socket(NRF_AF_LTE, 0, NRF_PROTO_AT);
+	fd = nrf_socket(NRF_AF_LTE, NRF_SOCK_DGRAM, NRF_PROTO_AT);
 	if (fd < 0) {
 		printf("failed to create socket\n");
 		return (-1);

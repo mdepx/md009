@@ -90,7 +90,7 @@ make_fd(void)
 	int err;
 	int fd;
 
-	fd = nrf_socket(NRF_AF_INET, NRF_SOCK_STREAM, 0);
+	fd = nrf_socket(NRF_AF_INET, NRF_SOCK_STREAM, NRF_IPPROTO_TCP);
 	if (fd < 0) {
 		printf("failed to create socket\n");
 		return (-1);
