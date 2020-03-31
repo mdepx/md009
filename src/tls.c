@@ -25,6 +25,7 @@
  */
 
 #include <sys/cdefs.h>
+#include <sys/systm.h>
 
 #include <nrfxlib/bsdlib/include/nrf_socket.h>
 #include <nrfxlib/bsdlib/include/bsd.h>
@@ -212,8 +213,8 @@ my_verify(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *flags)
 }
 #endif
 
-int
-tls_test(void)
+static int
+tls_test_one(void)
 {
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
@@ -223,6 +224,8 @@ tls_test(void)
 	int bpos;
 	int err;
 	int fd;
+
+	memset(&ssl_conf, 0, sizeof(mbedtls_ssl_config));
 
 	mbedtls_entropy_init(&entropy);
 	mbedtls_ctr_drbg_init(&ctr_drbg);
@@ -274,7 +277,7 @@ tls_test(void)
 
 	err = mbedtls_ssl_setup(&ssl, &ssl_conf);
 	if (err) {
-		printf("failed setup ssl, err %d\n", err);
+		printf("failed to setup ssl, err %d\n", err);
 		return (-1);
 	}
 
@@ -320,7 +323,15 @@ tls_test(void)
 
 	printf("%s: ok\n", __func__);
 
-	while (1);
+	return (0);
+}
+
+int
+tls_test(void)
+{
+
+	tls_test_one();
+	mdx_usleep(1000000);
 
 	return (0);
 }
