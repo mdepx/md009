@@ -30,6 +30,8 @@
 #include <mbedtls/entropy_poll.h>
 #include <mbedtls/platform_util.h>
 
+int get_random_number(uint8_t *out, int size);
+
 void
 mbedtls_platform_zeroize(void *buf, size_t len)
 {
@@ -41,12 +43,18 @@ int
 mbedtls_platform_entropy_poll( void *data,
     unsigned char *output, size_t len, size_t *olen )
 {
+	int size;
+	int err;
 
-	/* TODO */
+	size = len > 48 ? 48 : len;
 
 	printf("%s: len %d\n", __func__, len);
 
-	*olen = len;
+	err = get_random_number(output, size);
+	if (err)
+		*olen = size;
+	else
+		*olen = 0;
 
 	return (0);
 }

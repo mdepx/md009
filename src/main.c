@@ -88,6 +88,7 @@ static const char psm_req[] = "AT+CPSMS=1,,,\"00000110\",\"00000000\"";
 /* Request eDRX to be disabled */
 static const char edrx_disable[] = "AT+CEDRXS=3";
 
+int get_random_number(uint8_t *out, int size);
 
 /*
  * %XSYSTEMMODE=<M1_support>,<NB1_support>,<GNSS_support>,<LTE_preference>
@@ -462,6 +463,16 @@ main(void)
 	arm_nvic_setup_intr(&nvic_sc, ID_IPC,  ipc_proxy_intr,   NULL);
 	arm_nvic_set_prio(&nvic_sc, ID_IPC, 6);
 	nrf_uarte_register_callback(&uarte_sc, nrf_input, NULL);
+
+#if 0
+	uint8_t rand[4];
+	int err;
+	while (1) {
+		printf("Getting random number...\n");
+		err = get_random_number(rand, 4);
+		printf("err %d, result %x\n", err, rand[0]);
+	}
+#endif
 
 	/* Switch to LTE */
 	sw_ctl(false, true);

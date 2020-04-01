@@ -34,3 +34,10 @@
 	.type sys_entry, function
 sys_entry:
 	b.w	0x7fe0	/* 0x8000 - 32, see nrf-boot */
+
+	.globl get_random_number
+	.text
+	.thumb_func
+	.type get_random_number, function
+get_random_number:
+	b.w	0x7fe8	/* 0x8000 - 32 + 8, see nrf-boot */
