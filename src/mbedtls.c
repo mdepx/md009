@@ -52,9 +52,9 @@ mbedtls_platform_entropy_poll( void *data,
 
 	err = get_random_number(output, size);
 	if (err)
-		*olen = size;
-	else
 		*olen = 0;
+	else
+		*olen = size;
 
 	return (0);
 }
