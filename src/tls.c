@@ -147,7 +147,6 @@ make_fd(void)
 	return (fd);
 }
 
-
 static int
 ssl_recv(void *arg, unsigned char *buf, size_t len)
 {
