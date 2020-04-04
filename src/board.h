@@ -45,4 +45,7 @@
 
 #define	MC6470_GPIOTE_CFG_ID	0
 
+#define	DISK_ADDRESS		0xfc000
+#define	DISK_SIZE		0x4000
+
 #endif /* !_SRC_BOARD_H_ */
