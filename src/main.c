@@ -416,8 +416,8 @@ lte_connect(void)
 
 	if (lte_wait(fd) == 0) {
 		printf("LTE connected\n");
-		tls_test();
 		mqtt_test();
+		tls_test();
 	} else
 		printf("Failed to connect to LTE\n");
 
