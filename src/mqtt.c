@@ -158,7 +158,7 @@ read_file(const char *filename, void **addr, uint32_t *size)
 }
 
 static int
-mqtt_fd(void)
+mqtt_tcp_connect(int *fd0)
 {
 	struct nrf_addrinfo *server_addr;
 	int err;
@@ -215,7 +215,9 @@ mqtt_fd(void)
 
 	printf("Successfully connected to the MQTT server.\n");
 
-	return (fd);
+	*fd0 = fd;
+
+	return (0);
 }
 
 static int
@@ -314,7 +316,7 @@ my_verify(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *flags)
 #endif
 
 static int
-mqtt_test_secure(int fd)
+mqtt_handshake(int fd)
 {
 	char cbuf[1024];
 	uint32_t size;
@@ -445,6 +447,30 @@ mqtt_test_secure(int fd)
 	return (0);
 }
 
+static int
+mqtt_ssl_connect(int *fd0)
+{
+	int fd;
+	int err;
+
+	err = mqtt_tcp_connect(&fd);
+	if (err != 0) {
+		printf("Failed to connect to the TCP server, err %d\n", err);
+		return (-1);
+	}
+
+	err = mqtt_handshake(fd);
+	if (err != 0) {
+		printf("Failed to handshake, err %d\n", err);
+		return (-1);
+	}
+
+	nrf_fcntl(fd, NRF_F_SETFL, NRF_O_NONBLOCK);
+
+	*fd0 = fd;
+
+	return (0);
+}
 
 static int
 client_connect(struct mqtt_client *c, int fd)
@@ -488,9 +514,10 @@ mqtt_thread(void *arg)
 		mdx_sem_wait(&sem_reconn);
 
 		nrf_close(net->fd);
-		net->fd = mqtt_fd();
-		if (net->fd < 0) {
-			printf("%s: failed to create socket\n", __func__);
+		err = mqtt_ssl_connect(&net->fd);
+		if (err) {
+			printf("%s: Failed to establish SSL conn, err %d\n",
+			    __func__, err);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -577,38 +604,33 @@ mqtt_test_subscribe(void)
 	return (0);
 }
 
-void
+int
 mqtt_test(void)
 {
 	struct thread *td;
 	int err;
 	int fd;
 
-	fd = mqtt_fd();
-
-	err = mqtt_test_secure(fd);
-	if (err != 0) {
-		printf("Failed to connect\n");
-		return;
+	err = mqtt_ssl_connect(&fd);
+	if (err) {
+		printf("Failed to establish SSL connection, err %d\n", err);
+		return (-1);
 	}
-
-	nrf_fcntl(fd, NRF_F_SETFL, NRF_O_NONBLOCK);
 
 	mdx_sem_init(&sem_reconn, 0);
 
-	if (1 == 0) {
-		td = mdx_thread_create("mqtt recv", 1, 0, 8192,
-		    mqtt_thread, &client);
-		if (td == NULL)
-			return;
-		mdx_sched_add(td);
+	td = mdx_thread_create("mqtt recv", 1, 0, 4096,
+	    mqtt_thread, &client);
+	if (td == NULL) {
+		printf("Failed to create thread\n");
+		return (-2);
 	}
+	mdx_sched_add(td);
 
 	err = client_connect(&client, fd);
 	if (err) {
 		printf("%s: can't connect to the MQTT broker\n", __func__);
-		while (1);
-		return;
+		return (-3);
 	}
 
 	printf("%s: connected to the MQTT broker.\n",
@@ -618,11 +640,13 @@ mqtt_test(void)
 	if (err) {
 		printf("%s: can't subscribe\n",
 		    __func__);
-		return;
+		return (-4);
 	}
 
 	while (1) {
 		mqtt_test_publish();
-		mdx_usleep(70000000);
+		mdx_usleep(20000000);
 	}
+
+	return (0);
 }

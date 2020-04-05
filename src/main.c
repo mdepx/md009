@@ -380,6 +380,7 @@ lte_wait(int fd)
 static int
 lte_connect(void)
 {
+	int err;
 	int fd;
 
 	fd = nrf_socket(NRF_AF_LTE, NRF_SOCK_DGRAM, NRF_PROTO_AT);
@@ -416,7 +417,9 @@ lte_connect(void)
 
 	if (lte_wait(fd) == 0) {
 		printf("LTE connected\n");
-		mqtt_test();
+		err = mqtt_test();
+		if (err)
+			printf("mqtt test failed, err %d\n", err);
 		tls_test();
 	} else
 		printf("Failed to connect to LTE\n");

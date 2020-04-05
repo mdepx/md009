@@ -27,6 +27,6 @@
 #ifndef _SRC_MQTT_H_
 #define	_SRC_MQTT_H_
 
-void mqtt_test(void);
+int mqtt_test(void);
 
 #endif /* !_SRC_MQTT_H_ */
