@@ -55,8 +55,6 @@
 #undef	MBEDTLS_DEBUG
 
 static struct mqtt_client client;
-static int client_connect(struct mqtt_client *c, int fd);
-
 static mbedtls_ssl_context ssl;
 static mbedtls_entropy_context entropy;
 static mbedtls_ctr_drbg_context ctr_drbg;
@@ -213,7 +211,7 @@ mqtt_tcp_connect(int *fd0)
 		return (-1);
 	}
 
-	printf("Successfully connected to the MQTT server.\n");
+	printf("Successfully connected to the MQTT server, fd %d\n", fd);
 
 	*fd0 = fd;
 
@@ -473,7 +471,7 @@ mqtt_ssl_connect(int *fd0)
 }
 
 static int
-client_connect(struct mqtt_client *c, int fd)
+client_initialize(struct mqtt_client *c)
 {
 	struct mqtt_network *net;
 	int err;
@@ -482,7 +480,7 @@ client_connect(struct mqtt_client *c, int fd)
 	client.event = mqtt_event;
 	client.msgcb = mqtt_cb;
 	net = &client.net;
-	net->fd = fd;
+	net->fd = -1;
 	net->read = net_read;
 	net->write = net_write;
 	err = mqtt_init(&client);
@@ -491,11 +489,50 @@ client_connect(struct mqtt_client *c, int fd)
 		return (-1);
 	};
 
-	err = mqtt_connect(&client);
+	return (0);
+}
+
+static int
+mqtt_test_subscribe(void)
+{
+	struct mqtt_request s;
+	int err;
+
+	memset(&s, 0, sizeof(struct mqtt_request));
+	s.topic = "test/test";
+	s.topic_len = 9;
+	s.qos = 0;
+	err = mqtt_subscribe(&client, &s);
 	if (err != 0) {
-		printf("%s: can't send MQTT connect message\n", __func__);
-		return (-2);
+		printf("%s: cant subscribe\n", __func__);
+		return (-1);
 	}
+
+	printf("%s: subscribe succeeded\n", __func__);
+
+	return (0);
+}
+
+static int
+mqtt_test_publish(void)
+{
+	struct mqtt_request m;
+	int err;
+
+	memset(&m, 0, sizeof(struct mqtt_request));
+	m.qos = 1;
+	m.data = "test message";
+	m.data_len = 12;
+	m.topic = "test/test";
+	m.topic_len = 9;
+
+	err = mqtt_publish(&client, &m);
+	if (err != 0) {
+		printf("%s: can't publish\n", __func__);
+		return (-1);
+	}
+
+	printf("%s: publish succeeded\n", __func__);
 
 	return (0);
 }
@@ -513,7 +550,10 @@ mqtt_thread(void *arg)
 	while (1) {
 		mdx_sem_wait(&sem_reconn);
 
-		nrf_close(net->fd);
+		if (net->fd >= 0) {
+			nrf_close(net->fd);
+			net->fd = -1;
+		}
 		err = mqtt_ssl_connect(&net->fd);
 		if (err) {
 			printf("%s: Failed to establish SSL conn, err %d\n",
@@ -529,7 +569,23 @@ mqtt_thread(void *arg)
 			    __func__);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
+			continue;
 		}
+
+		err = mqtt_test_subscribe();
+		if (err) {
+			printf("%s: can't subscribe\n",
+			    __func__);
+			mdx_sem_post(&sem_reconn);
+			mdx_usleep(1000000);
+			continue;
+		}
+
+		do {
+			err = mqtt_test_publish();
+			mqtt_poll(c);
+			mdx_usleep(5000000);
+		} while (err == 0);
 	}
 }
 
@@ -559,94 +615,32 @@ mqtt_cb(struct mqtt_client *c, struct mqtt_request *m)
 	printf(" data: %s\n", m->data);
 }
 
-static int
-mqtt_test_publish(void)
-{
-	struct mqtt_request m;
-	int err;
-
-	memset(&m, 0, sizeof(struct mqtt_request));
-	m.qos = 1;
-	m.data = "test message";
-	m.data_len = 12;
-	m.topic = "test/test";
-	m.topic_len = 9;
-
-	err = mqtt_publish(&client, &m);
-	if (err != 0) {
-		printf("%s: can't publish\n", __func__);
-		return (-1);
-	}
-
-	printf("%s: publish succeeded\n", __func__);
-
-	return (0);
-}
-
-static int
-mqtt_test_subscribe(void)
-{
-	struct mqtt_request s;
-	int err;
-
-	memset(&s, 0, sizeof(struct mqtt_request));
-	s.topic = "test/test";
-	s.topic_len = 9;
-	s.qos = 0;
-	err = mqtt_subscribe(&client, &s);
-	if (err != 0) {
-		printf("%s: cant subscribe\n", __func__);
-		return (-1);
-	}
-
-	printf("%s: subscribe succeeded\n", __func__);
-
-	return (0);
-}
-
 int
 mqtt_test(void)
 {
-	struct thread *td;
 	int err;
-	int fd;
 
-	err = mqtt_ssl_connect(&fd);
+	err = client_initialize(&client);
 	if (err) {
-		printf("Failed to establish SSL connection, err %d\n", err);
-		return (-1);
+		printf("%s: can't initialize MQTT client\n", __func__);
+		return (-3);
 	}
 
-	mdx_sem_init(&sem_reconn, 0);
+	mdx_sem_init(&sem_reconn, 1);
 
-	td = mdx_thread_create("mqtt recv", 1, 0, 4096,
+#if 0
+	struct thread *td;
+	td = mdx_thread_create("mqtt recv", 1, 0, 24000,
 	    mqtt_thread, &client);
 	if (td == NULL) {
 		printf("Failed to create thread\n");
 		return (-2);
 	}
+
 	mdx_sched_add(td);
+#endif
 
-	err = client_connect(&client, fd);
-	if (err) {
-		printf("%s: can't connect to the MQTT broker\n", __func__);
-		return (-3);
-	}
-
-	printf("%s: connected to the MQTT broker.\n",
-	    __func__);
-
-	err = mqtt_test_subscribe();
-	if (err) {
-		printf("%s: can't subscribe\n",
-		    __func__);
-		return (-4);
-	}
-
-	while (1) {
-		mqtt_test_publish();
-		mdx_usleep(20000000);
-	}
+	mqtt_thread(&client);
 
 	return (0);
 }
