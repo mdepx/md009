@@ -349,6 +349,7 @@ mqtt_handshake(int fd)
 		printf("failed to parse cacert, err %d\n", err);
 		return (-1);
 	}
+	printf("rootca size %d\n", size);
 
 	err = mbedtls_ssl_config_defaults(&ssl_conf,
 	    MBEDTLS_SSL_IS_CLIENT,
@@ -373,6 +374,7 @@ mqtt_handshake(int fd)
 		printf("could not parse pk key, err %d\n", err);
 		return (-1);
 	}
+	printf("pkey size %d\n", size);
 
 	err = read_file("certificate.pem", &addr, &size);
 	if (err) {
@@ -385,6 +387,7 @@ mqtt_handshake(int fd)
 		printf("could not read certificate, err %d\n", err);
 		return (-1);
 	}
+	printf("clicert size %d\n", size);
 
 	err = mbedtls_ssl_conf_own_cert(&ssl_conf, &clicert, &pkey);
 	if (err) {
@@ -586,6 +589,8 @@ mqtt_thread(void *arg)
 			mqtt_poll(c);
 			mdx_usleep(5000000);
 		} while (err == 0);
+
+		mdx_sem_post(&sem_reconn);
 	}
 }
 
@@ -628,19 +633,20 @@ mqtt_test(void)
 
 	mdx_sem_init(&sem_reconn, 1);
 
-#if 0
+#if 1
 	struct thread *td;
-	td = mdx_thread_create("mqtt recv", 1, 0, 24000,
+	td = mdx_thread_create("mqtt recv", 1, 0, 16384,
 	    mqtt_thread, &client);
 	if (td == NULL) {
 		printf("Failed to create thread\n");
 		return (-2);
 	}
-
 	mdx_sched_add(td);
-#endif
-
+	while (1)
+		mdx_usleep(1000000);
+#else
 	mqtt_thread(&client);
+#endif
 
 	return (0);
 }
