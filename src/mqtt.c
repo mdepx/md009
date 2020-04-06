@@ -227,6 +227,9 @@ net_read(struct mqtt_network *net, uint8_t *buf, int len)
 	err = mbedtls_ssl_read(&ssl, (unsigned char *)buf, len); //sizeof(buf));
 	printf("%s: err %d\n", __func__, err);
 
+	if (err == MBEDTLS_ERR_SSL_TIMEOUT)
+		err = -1;
+
 	return (err);
 }
 
@@ -259,6 +262,63 @@ ssl_recv(void *arg, unsigned char *buf, size_t len)
 	printf("%s: len %d\n", __func__, len);
 	err = nrf_read(fd, buf, len);
 	printf("%s: err %d\n", __func__, err);
+
+	return (err);
+}
+
+static void
+cb(void *arg)
+{
+	int *complete;
+
+	complete = arg;
+
+	//printf("%s\n", __func__);
+
+	*complete = 1;
+}
+
+static int
+ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
+{
+	mdx_callout_t c;
+	int err;
+	int fd;
+	int complete;
+
+	fd = (int)arg;
+
+	complete = 0;
+	mdx_callout_init(&c);
+	mdx_callout_set(&c, timeout * 1000000, cb, &complete);
+
+	printf("%s: len %d, timeout %d\n", __func__, len, timeout);
+
+	do {
+		err = nrf_read(fd, buf, len);
+		if (err > 0) {
+			/* Data received */
+			break;
+		}
+
+		if (err == 0) {
+			/* Connection closed */
+			break;
+		}
+	} while (complete == 0);
+
+	printf("%s: err %d, complete %d\n", __func__, err, complete);
+
+	critical_enter();
+	mdx_callout_cancel(&c);
+	critical_exit();
+
+	if (err == 0) {
+		/* Connection closed */
+	} else if (complete == 1) {
+		/* Timeout */
+		err = MBEDTLS_ERR_SSL_TIMEOUT;
+	}
 
 	return (err);
 }
@@ -408,7 +468,8 @@ mqtt_handshake(int fd)
 	mbedtls_debug_set_threshold(DEBUG_LEVEL);
 #endif
 
-	mbedtls_ssl_conf_read_timeout(&ssl_conf, 0);
+	mbedtls_ssl_conf_read_timeout(&ssl_conf, 10);
+	mbedtls_ssl_conf_handshake_timeout(&ssl_conf, 5, 15);
 
 	err = mbedtls_ssl_setup(&ssl, &ssl_conf);
 	if (err) {
@@ -417,7 +478,8 @@ mqtt_handshake(int fd)
 	}
 
 	mbedtls_ssl_set_hostname(&ssl, TCP_HOST);
-	mbedtls_ssl_set_bio(&ssl, (void *)fd, ssl_send, ssl_recv, NULL);
+	mbedtls_ssl_set_bio(&ssl, (void *)fd,
+	    ssl_send, ssl_recv, ssl_recv_timeout);
 
 	err = mbedtls_ssl_handshake(&ssl);
 	if (err) {
@@ -460,15 +522,14 @@ mqtt_ssl_connect(int *fd0)
 		return (-1);
 	}
 
+	nrf_fcntl(fd, NRF_F_SETFL, NRF_O_NONBLOCK);
+	*fd0 = fd;
+
 	err = mqtt_handshake(fd);
 	if (err != 0) {
 		printf("Failed to handshake, err %d\n", err);
 		return (-1);
 	}
-
-	nrf_fcntl(fd, NRF_F_SETFL, NRF_O_NONBLOCK);
-
-	*fd0 = fd;
 
 	return (0);
 }
@@ -546,9 +607,12 @@ mqtt_thread(void *arg)
 	struct mqtt_network *net;
 	struct mqtt_client *c;
 	int err;
+	int retry;
 
 	c = arg;
 	net = &c->net;
+
+	retry = 0;
 
 	while (1) {
 		mdx_sem_wait(&sem_reconn);
@@ -557,14 +621,32 @@ mqtt_thread(void *arg)
 			nrf_close(net->fd);
 			net->fd = -1;
 		}
+
+		mbedtls_entropy_free(&entropy);
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_x509_crt_free(&cacert);
+		mbedtls_x509_crt_free(&clicert);
+		mbedtls_ssl_free(&ssl);
+		mbedtls_ssl_config_free(&ssl_conf);
+		mbedtls_pk_free(&pkey);
+
 		err = mqtt_ssl_connect(&net->fd);
 		if (err) {
 			printf("%s: Failed to establish SSL conn, err %d\n",
 			    __func__, err);
+
+			/* Give up */
+			if (retry++ > 10) {
+				printf("can't connect, retry count exceeded\n");
+				continue;
+			}
+
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
 		}
+
+		retry = 0;
 
 		err = mqtt_connect(&client);
 		if (err) {
@@ -588,6 +670,7 @@ mqtt_thread(void *arg)
 			err = mqtt_test_publish();
 			mqtt_poll(c);
 			mdx_usleep(5000000);
+			mqtt_poll(c);
 		} while (err == 0);
 
 		mdx_sem_post(&sem_reconn);
