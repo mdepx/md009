@@ -71,7 +71,7 @@ board_init(void)
 	mdx_console_register(uart_putchar, (void *)&uarte_sc);
 
 	mdx_fl_init();
-	mdx_fl_add_region(0x20008000, 0x8000);
+	mdx_fl_add_region(0x20004000, 0x0c000);
 	mdx_fl_add_region(0x20030000, 0x10000);
 
 	nrf_power_init(&power_sc, BASE_POWER);
