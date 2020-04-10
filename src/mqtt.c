@@ -156,25 +156,22 @@ read_file(const char *filename, void **addr, uint32_t *size)
 }
 
 static int
-mqtt_tcp_connect(int *fd0)
+mqtt_tcp_connect(int fd)
 {
 	struct nrf_addrinfo *server_addr;
 	int err;
-	int fd;
 
-	fd = nrf_socket(NRF_AF_INET, NRF_SOCK_STREAM, NRF_IPPROTO_TCP);
-	if (fd < 0) {
-		printf("failed to create socket\n");
-		return (-1);
-	}
+	printf("%s: freeing the address\n", __func__);
 
 	nrf_freeaddrinfo(server_addr);
+
+	printf("%s: nrf_getaddrinfo\n", __func__);
 	err = nrf_getaddrinfo(TCP_HOST, NULL, NULL, &server_addr);
 	if (err != 0) {
 		printf("getaddrinfo failed with error %d\n", err);
-		nrf_close(fd);
 		return (-1);
 	}
+	printf("%s: nrf_getaddrinfo done\n", __func__);
 
 	struct nrf_sockaddr_in local_addr;
 	struct nrf_sockaddr_in *s;
@@ -198,7 +195,6 @@ mqtt_tcp_connect(int *fd0)
 	    sizeof(local_addr));
 	if (err != 0) {
 		printf("Bind failed: %d\n", err);
-		nrf_close(fd);
 		return (-1);
 	}
 
@@ -207,13 +203,10 @@ mqtt_tcp_connect(int *fd0)
 	    sizeof(struct nrf_sockaddr_in));
 	if (err != 0) {
 		printf("TCP connect failed: err %d\n", err);
-		nrf_close(fd);
 		return (-1);
 	}
 
 	printf("Successfully connected to the MQTT server, fd %d\n", fd);
-
-	*fd0 = fd;
 
 	return (0);
 }
@@ -511,22 +504,30 @@ mqtt_handshake(int fd)
 }
 
 static int
-mqtt_ssl_connect(int *fd0)
+mqtt_ssl_connect(struct mqtt_network *net)
 {
-	int fd;
 	int err;
 
-	err = mqtt_tcp_connect(&fd);
+	printf("%s: trying to connect\n", __func__);
+
+	net->fd = nrf_socket(NRF_AF_INET, NRF_SOCK_STREAM, NRF_IPPROTO_TCP);
+	if (net->fd < 0) {
+		printf("failed to create socket\n");
+		return (-1);
+	}
+
+	err = mqtt_tcp_connect(net->fd);
 	if (err != 0) {
+		nrf_close(net->fd);
 		printf("Failed to connect to the TCP server, err %d\n", err);
 		return (-1);
 	}
 
-	nrf_fcntl(fd, NRF_F_SETFL, NRF_O_NONBLOCK);
-	*fd0 = fd;
+	nrf_fcntl(net->fd, NRF_F_SETFL, NRF_O_NONBLOCK);
 
-	err = mqtt_handshake(fd);
+	err = mqtt_handshake(net->fd);
 	if (err != 0) {
+		nrf_close(net->fd);
 		printf("Failed to handshake, err %d\n", err);
 		return (-1);
 	}
@@ -615,12 +616,10 @@ mqtt_thread(void *arg)
 	retry = 0;
 
 	while (1) {
+		printf("%s: Waiting for a semaphore...\n", __func__);
 		mdx_sem_wait(&sem_reconn);
 
-		if (net->fd >= 0) {
-			nrf_close(net->fd);
-			net->fd = -1;
-		}
+		printf("%s: Freeing SSL configuration\n", __func__);
 
 		mbedtls_entropy_free(&entropy);
 		mbedtls_ctr_drbg_free(&ctr_drbg);
@@ -630,7 +629,8 @@ mqtt_thread(void *arg)
 		mbedtls_ssl_config_free(&ssl_conf);
 		mbedtls_pk_free(&pkey);
 
-		err = mqtt_ssl_connect(&net->fd);
+		printf("%s: trying to SSL connect\n", __func__);
+		err = mqtt_ssl_connect(net);
 		if (err) {
 			printf("%s: Failed to establish SSL conn, err %d\n",
 			    __func__, err);
@@ -652,6 +652,7 @@ mqtt_thread(void *arg)
 		if (err) {
 			printf("%s: can't connect to the MQTT broker\n",
 			    __func__);
+			nrf_close(net->fd);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -661,6 +662,7 @@ mqtt_thread(void *arg)
 		if (err) {
 			printf("%s: can't subscribe\n",
 			    __func__);
+			nrf_close(net->fd);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -668,12 +670,20 @@ mqtt_thread(void *arg)
 
 		do {
 			err = mqtt_test_publish();
-			mqtt_poll(c);
+			if (err)
+				break;
+			err = mqtt_poll(c);
+			if (err)
+				break;
 			mdx_usleep(5000000);
-			mqtt_poll(c);
+			err = mqtt_poll(c);
+			if (err)
+				break;
 		} while (err == 0);
 
+		nrf_close(net->fd);
 		mdx_sem_post(&sem_reconn);
+		mdx_usleep(1000000);
 	}
 }
 
