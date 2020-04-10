@@ -298,6 +298,8 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 			/* Connection closed */
 			break;
 		}
+
+		mdx_usleep(500000);
 	} while (complete == 0);
 
 	printf("%s: err %d, complete %d\n", __func__, err, complete);
