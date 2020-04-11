@@ -26,6 +26,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/systm.h>
+#include <sys/malloc.h>
 
 #include <nrfxlib/bsdlib/include/nrf_socket.h>
 #include <nrfxlib/bsdlib/include/bsd.h>
@@ -142,6 +143,12 @@ read_file(const char *filename, void **addr, uint32_t *size)
 		return (err);
 	}
 
+	err = lfs_file_close(&lfs, &file);
+	if (err) {
+		/* Memory leak ? */
+		printf("%s: cant close the file\n", __func__);
+	}
+
 	err = lfs_unmount(&lfs);
 	if (err)
 		printf("%s: could not unmount\n", __func__);
@@ -155,20 +162,26 @@ read_file(const char *filename, void **addr, uint32_t *size)
 	return (0);
 }
 
+static void
+nrf_close1(int fd)
+{
+
+	printf("closing socket...\n");
+	nrf_close(fd);
+	printf("closing socket...OK\n");
+}
+
 static int
 mqtt_tcp_connect(int fd)
 {
 	struct nrf_addrinfo *server_addr;
 	int err;
 
-	printf("%s: freeing the address\n", __func__);
-
-	nrf_freeaddrinfo(server_addr);
-
 	printf("%s: nrf_getaddrinfo\n", __func__);
 	err = nrf_getaddrinfo(TCP_HOST, NULL, NULL, &server_addr);
 	if (err != 0) {
 		printf("getaddrinfo failed with error %d\n", err);
+		nrf_freeaddrinfo(server_addr);
 		return (-1);
 	}
 	printf("%s: nrf_getaddrinfo done\n", __func__);
@@ -195,6 +208,7 @@ mqtt_tcp_connect(int fd)
 	    sizeof(local_addr));
 	if (err != 0) {
 		printf("Bind failed: %d\n", err);
+		nrf_freeaddrinfo(server_addr);
 		return (-1);
 	}
 
@@ -203,8 +217,11 @@ mqtt_tcp_connect(int fd)
 	    sizeof(struct nrf_sockaddr_in));
 	if (err != 0) {
 		printf("TCP connect failed: err %d\n", err);
+		nrf_freeaddrinfo(server_addr);
 		return (-1);
 	}
+
+	nrf_freeaddrinfo(server_addr);
 
 	printf("Successfully connected to the MQTT server, fd %d\n", fd);
 
@@ -253,7 +270,7 @@ ssl_recv(void *arg, unsigned char *buf, size_t len)
 	fd = (int)arg;
 
 	printf("%s: len %d\n", __func__, len);
-	err = nrf_read(fd, buf, len);
+	err = nrf_recv(fd, buf, len, NRF_MSG_DONTWAIT);
 	printf("%s: err %d\n", __func__, err);
 
 	return (err);
@@ -288,7 +305,7 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 	printf("%s: len %d, timeout %d\n", __func__, len, timeout);
 
 	do {
-		err = nrf_read(fd, buf, len);
+		err = nrf_recv(fd, buf, len, NRF_MSG_DONTWAIT);
 		if (err > 0) {
 			/* Data received */
 			break;
@@ -520,16 +537,14 @@ mqtt_ssl_connect(struct mqtt_network *net)
 
 	err = mqtt_tcp_connect(net->fd);
 	if (err != 0) {
-		nrf_close(net->fd);
+		nrf_close1(net->fd);
 		printf("Failed to connect to the TCP server, err %d\n", err);
 		return (-1);
 	}
 
-	nrf_fcntl(net->fd, NRF_F_SETFL, NRF_O_NONBLOCK);
-
 	err = mqtt_handshake(net->fd);
 	if (err != 0) {
-		nrf_close(net->fd);
+		nrf_close1(net->fd);
 		printf("Failed to handshake, err %d\n", err);
 		return (-1);
 	}
@@ -639,8 +654,9 @@ mqtt_thread(void *arg)
 
 			/* Give up */
 			if (retry++ > 10) {
-				printf("can't connect, retry count exceeded\n");
-				continue;
+				printf("can't connect, retry count %d\n",
+				    retry);
+				//continue;
 			}
 
 			mdx_sem_post(&sem_reconn);
@@ -654,7 +670,7 @@ mqtt_thread(void *arg)
 		if (err) {
 			printf("%s: can't connect to the MQTT broker\n",
 			    __func__);
-			nrf_close(net->fd);
+			nrf_close1(net->fd);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -664,7 +680,7 @@ mqtt_thread(void *arg)
 		if (err) {
 			printf("%s: can't subscribe\n",
 			    __func__);
-			nrf_close(net->fd);
+			nrf_close1(net->fd);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -683,7 +699,7 @@ mqtt_thread(void *arg)
 				break;
 		} while (err == 0);
 
-		nrf_close(net->fd);
+		nrf_close1(net->fd);
 		mdx_sem_post(&sem_reconn);
 		mdx_usleep(1000000);
 	}
