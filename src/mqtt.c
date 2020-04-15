@@ -166,7 +166,7 @@ static void
 nrf_close1(int fd)
 {
 
-	printf("closing socket...\n");
+	printf("closing socket... fd %d\n", fd);
 	nrf_close(fd);
 	printf("closing socket...OK\n");
 }
@@ -175,7 +175,26 @@ static int
 mqtt_tcp_connect(int fd)
 {
 	struct nrf_addrinfo *server_addr;
+	struct nrf_sockaddr_in local_addr;
+	struct nrf_sockaddr_in *s;
+	uint8_t *ip;
 	int err;
+
+#if 0
+	struct nrf_addrinfo hints = {
+		.ai_family = NRF_AF_INET,
+		.ai_socktype = NRF_SOCK_STREAM
+	};
+
+	struct nrf_addrinfo apn_hints;
+
+	apn_hints.ai_family = NRF_AF_LTE;
+	apn_hints.ai_socktype = NRF_SOCK_MGMT;
+	apn_hints.ai_protocol = NRF_PROTO_PDN;
+	apn_hints.ai_canonname = "custom.apn";
+
+	hints.ai_next = &apn_hints;
+#endif
 
 	printf("%s: nrf_getaddrinfo\n", __func__);
 	err = nrf_getaddrinfo(TCP_HOST, NULL, NULL, &server_addr);
@@ -185,10 +204,6 @@ mqtt_tcp_connect(int fd)
 		return (-1);
 	}
 	printf("%s: nrf_getaddrinfo done\n", __func__);
-
-	struct nrf_sockaddr_in local_addr;
-	struct nrf_sockaddr_in *s;
-	uint8_t *ip;
 
 	s = (struct nrf_sockaddr_in *)server_addr->ai_addr;
 	ip = (uint8_t *)&(s->sin_addr.s_addr);
@@ -270,67 +285,43 @@ ssl_recv(void *arg, unsigned char *buf, size_t len)
 	fd = (int)arg;
 
 	printf("%s: len %d\n", __func__, len);
-	err = nrf_recv(fd, buf, len, NRF_MSG_DONTWAIT);
+	err = nrf_recv(fd, buf, len, 0); //NRF_MSG_DONTWAIT);
 	printf("%s: err %d\n", __func__, err);
 
 	return (err);
 }
 
-static void
-cb(void *arg)
-{
-	int *complete;
-
-	complete = arg;
-
-	//printf("%s\n", __func__);
-
-	*complete = 1;
-}
-
 static int
 ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 {
-	mdx_callout_t c;
+	struct nrf_pollfd fds;
 	int err;
 	int fd;
-	int complete;
+	int retval;
 
 	fd = (int)arg;
 
-	complete = 0;
-	mdx_callout_init(&c);
-	mdx_callout_set(&c, timeout * 1000000, cb, &complete);
+	fds.handle = fd;
+	fds.requested = NRF_POLLIN;
+	fds.returned = 0;
 
 	printf("%s: len %d, timeout %d\n", __func__, len, timeout);
 
-	do {
-		err = nrf_recv(fd, buf, len, NRF_MSG_DONTWAIT);
-		if (err > 0) {
-			/* Data received */
-			break;
-		}
+	retval = nrf_poll(&fds, 1, timeout * 1000000);
 
-		if (err == 0) {
-			/* Connection closed */
-			break;
-		}
+	printf("%s: nrf_poll ret %d, returned %x\n", __func__,
+	    retval, fds.returned);
 
-		mdx_usleep(500000);
-	} while (complete == 0);
+	if (retval == 0) /* timeout */
+		return (MBEDTLS_ERR_SSL_TIMEOUT);
 
-	printf("%s: err %d, complete %d\n", __func__, err, complete);
+	if (retval < 0) /* error */
+		return (-1);
 
-	critical_enter();
-	mdx_callout_cancel(&c);
-	critical_exit();
+	err = 0;
 
-	if (err == 0) {
-		/* Connection closed */
-	} else if (complete == 1) {
-		/* Timeout */
-		err = MBEDTLS_ERR_SSL_TIMEOUT;
-	}
+	if (fds.returned & NRF_POLLIN)
+		err = nrf_recv(fd, buf, len, 0);
 
 	return (err);
 }
@@ -344,7 +335,7 @@ ssl_send(void *arg, const unsigned char *buf, size_t len)
 	fd = (int)arg;
 
 	printf("%s: len %d\n", __func__, len);
-	err = nrf_write(fd, buf, len);
+	err = nrf_send(fd, buf, len, 0);
 	printf("%s: err %d\n", __func__, err);
 
 	return (err);
@@ -535,6 +526,8 @@ mqtt_ssl_connect(struct mqtt_network *net)
 		return (-1);
 	}
 
+	printf("%s: trying to connect, fd %d\n", __func__, net->fd);
+
 	err = mqtt_tcp_connect(net->fd);
 	if (err != 0) {
 		nrf_close1(net->fd);
@@ -693,7 +686,7 @@ mqtt_thread(void *arg)
 			err = mqtt_poll(c);
 			if (err)
 				break;
-			mdx_usleep(5000000);
+			mdx_usleep(1000000);
 			err = mqtt_poll(c);
 			if (err)
 				break;
@@ -753,8 +746,10 @@ mqtt_test(void)
 		return (-2);
 	}
 	mdx_sched_add(td);
-	while (1)
+	while (1) {
 		mdx_usleep(1000000);
+		printf(".");
+	}
 #else
 	mqtt_thread(&client);
 #endif
