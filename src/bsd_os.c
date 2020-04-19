@@ -121,17 +121,25 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	struct sleeping_thread td;
 	int val;
 	int err;
+	int tmout;
 
 	val = *p_timeout;
+	if (val == 0) {
+		mdx_thread_yield();
+		return (NRF_ETIMEDOUT);
+	}
 
 	/*
 	 * Note that rpc_proxy intr could fire right here.
-	 * So don't wait forever, just set big enough timeout.
+	 * To handle that situation don't wait forever,
+	 * just set some reasonable timeout.
 	 */
 	if (val == -1)
-		val = 10000000; /* 10 sec. */
-	else if (val == 0)
-		return (NRF_ETIMEDOUT);
+		tmout = 10000000; /* 10 sec. */
+	else if (val > 0)
+		tmout = val;
+	else
+		panic("val %d", val);
 
 	mdx_sem_init(&td.sem, 0);
 
@@ -139,9 +147,9 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	list_append(&sleeping_thread_list, &td.node);
 	critical_exit();
 
-	dprintf("%s: %d\n", __func__, *p_timeout);
+	dprintf("%s: %d\n", __func__, val);
 
-	err = mdx_sem_timedwait(&td.sem, val);
+	err = mdx_sem_timedwait(&td.sem, tmout);
 
 	critical_enter();
 	list_remove(&td.node);
@@ -149,6 +157,8 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 
 	if (err == 0) {
 		dprintf("%s: timeout\n", __func__);
+		if (val == -1)
+			return (0);
 		return (NRF_ETIMEDOUT);
 	}
 
