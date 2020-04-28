@@ -45,6 +45,7 @@
 #include <cJSON/cJSON.h>
 #include <mqtt/mqtt.h>
 #include "mqtt.h"
+#include "lte.h"
 #include "board.h"
 
 #define	TCP_HOST	"akc28iu7dn5ra-ats.iot.eu-west-2.amazonaws.com"
@@ -174,27 +175,11 @@ nrf_close1(int fd)
 static int
 mqtt_tcp_connect(int fd)
 {
-	struct nrf_addrinfo *server_addr;
 	struct nrf_sockaddr_in local_addr;
+	struct nrf_addrinfo *server_addr;
 	struct nrf_sockaddr_in *s;
 	uint8_t *ip;
 	int err;
-
-#if 0
-	struct nrf_addrinfo hints = {
-		.ai_family = NRF_AF_INET,
-		.ai_socktype = NRF_SOCK_STREAM
-	};
-
-	struct nrf_addrinfo apn_hints;
-
-	apn_hints.ai_family = NRF_AF_LTE;
-	apn_hints.ai_socktype = NRF_SOCK_MGMT;
-	apn_hints.ai_protocol = NRF_PROTO_PDN;
-	apn_hints.ai_canonname = "custom.apn";
-
-	hints.ai_next = &apn_hints;
-#endif
 
 	printf("%s: nrf_getaddrinfo\n", __func__);
 	err = nrf_getaddrinfo(TCP_HOST, NULL, NULL, &server_addr);
@@ -203,6 +188,7 @@ mqtt_tcp_connect(int fd)
 		nrf_freeaddrinfo(server_addr);
 		return (-1);
 	}
+
 	printf("%s: nrf_getaddrinfo done\n", __func__);
 
 	s = (struct nrf_sockaddr_in *)server_addr->ai_addr;
@@ -307,7 +293,7 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 
 	printf("%s: len %d, timeout %d\n", __func__, len, timeout);
 
-	retval = nrf_poll(&fds, 1, timeout * 1000000);
+	retval = nrf_poll(&fds, 1, timeout * 1000);
 
 	printf("%s: nrf_poll ret %d, returned %x\n", __func__,
 	    retval, fds.returned);
@@ -526,6 +512,36 @@ mqtt_ssl_connect(struct mqtt_network *net)
 		return (-1);
 	}
 
+	struct nrf_timeval timeout = {
+		.tv_sec = 5,
+		.tv_usec = 0,
+	};
+
+	int error;
+	error = nrf_setsockopt(net->fd,
+				NRF_SOL_SOCKET,
+				NRF_SO_SNDTIMEO,
+				&timeout,
+				sizeof(timeout));
+	if (error) {
+		nrf_close1(net->fd);
+		printf("%s: Can't set sndtimeo: error %d\n",
+		    __func__, error);
+		return (-1);
+	}
+
+	error = nrf_setsockopt(net->fd,
+				NRF_SOL_SOCKET,
+				NRF_SO_RCVTIMEO,
+				&timeout,
+				sizeof(timeout));
+	if (error) {
+		nrf_close1(net->fd);
+		printf("%s: Can't set rcvtimeo: error %d\n",
+		    __func__, error);
+		return (-1);
+	}
+
 	printf("%s: trying to connect, fd %d\n", __func__, net->fd);
 
 	err = mqtt_tcp_connect(net->fd);
@@ -626,6 +642,8 @@ mqtt_thread(void *arg)
 	retry = 0;
 
 	while (1) {
+		lte_connect();
+
 		printf("%s: Waiting for a semaphore...\n", __func__);
 		mdx_sem_wait(&sem_reconn);
 
@@ -646,7 +664,7 @@ mqtt_thread(void *arg)
 			    __func__, err);
 
 			/* Give up */
-			if (retry++ > 10) {
+			if (retry++ > 1000) {
 				printf("can't connect, retry count %d\n",
 				    retry);
 				//continue;

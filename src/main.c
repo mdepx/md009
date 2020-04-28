@@ -46,6 +46,7 @@
 #include "board.h"
 #include "sensor.h"
 #include "gps.h"
+#include "lte.h"
 #include "mqtt.h"
 #include "tls.h"
 
@@ -363,7 +364,7 @@ lte_wait(int fd)
 	return (0);
 }
 
-static int
+int
 lte_connect(void)
 {
 	int err;
@@ -403,12 +404,27 @@ lte_connect(void)
 
 	if (lte_wait(fd) == 0) {
 		printf("LTE connected\n");
-		err = mqtt_test();
-		if (err)
-			printf("mqtt test failed, err %d\n", err);
-		tls_test();
-	} else
+		err = 0;
+	} else {
 		printf("Failed to connect to LTE\n");
+		err = -1;
+	}
+
+	nrf_close(fd);
+
+	return (err);
+}
+
+static int
+gps_en(void)
+{
+	int fd;
+
+	fd = nrf_socket(NRF_AF_LTE, NRF_SOCK_DGRAM, NRF_PROTO_AT);
+	if (fd < 0) {
+		printf("failed to create socket\n");
+		return (-1);
+	}
 
 	/* Switch to GPS */
 	sw_ctl(true, true);
@@ -472,8 +488,10 @@ main(void)
 	ready_to_send = 0;
 
 	sensor_init();
-	lte_connect();
 
+	mqtt_test();
+
+	gps_en();
 	error = gps_init();
 	if (error)
 		printf("Can't initialize GPS\n");

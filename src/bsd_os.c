@@ -91,6 +91,8 @@ rpc_proxy_intr(void *arg, struct trapframe *tf, int irq)
 {
 	struct sleeping_thread *td;
 
+	printf(",");
+
 	bsd_os_application_irq_handler();
 
 	for (td = td_first(); td != NULL; td = td_next(td))
@@ -106,11 +108,11 @@ bsd_os_init(void)
 	mdx_mutex_init(&bsdos_mtx);
 	list_init(&sleeping_thread_list);
 
-	arm_nvic_setup_intr(&nvic_sc, ID_EGU2, trace_proxy_intr, NULL);
-	arm_nvic_setup_intr(&nvic_sc, ID_EGU1, rpc_proxy_intr,   NULL);
+	arm_nvic_setup_intr(&nvic_sc, ID_EGU1, rpc_proxy_intr, NULL);
 	arm_nvic_set_prio(&nvic_sc, ID_EGU1, 6);
 	arm_nvic_enable_intr(&nvic_sc, ID_EGU1);
 
+	arm_nvic_setup_intr(&nvic_sc, ID_EGU2, trace_proxy_intr, NULL);
 	arm_nvic_set_prio(&nvic_sc, ID_EGU2, 6);
 	arm_nvic_enable_intr(&nvic_sc, ID_EGU2);
 }
@@ -135,9 +137,9 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	 * just set some reasonable timeout.
 	 */
 	if (val == -1)
-		tmout = 10000000; /* 10 sec. */
+		tmout = 0; //10000000; /* 10 sec. */
 	else if (val > 0)
-		tmout = val;
+		tmout = val * 1000;
 	else
 		panic("val %d", val);
 
@@ -147,7 +149,7 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	list_append(&sleeping_thread_list, &td.node);
 	critical_exit();
 
-	dprintf("%s: %d\n", __func__, val);
+	printf("%s: %d\n", __func__, tmout);
 
 	err = mdx_sem_timedwait(&td.sem, tmout);
 
@@ -156,9 +158,11 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	critical_exit();
 
 	if (err == 0) {
-		dprintf("%s: timeout\n", __func__);
-		if (val == -1)
-			return (0);
+		printf("%s: timeout\n", __func__);
+		//if (val == -1) {
+		//	bsd_os_application_irq_handler();
+		//	return (0);
+		//}
 		return (NRF_ETIMEDOUT);
 	}
 
