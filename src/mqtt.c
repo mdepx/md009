@@ -642,8 +642,6 @@ mqtt_thread(void *arg)
 	retry = 0;
 
 	while (1) {
-		lte_connect();
-
 		printf("%s: Waiting for a semaphore...\n", __func__);
 		mdx_sem_wait(&sem_reconn);
 
@@ -663,13 +661,7 @@ mqtt_thread(void *arg)
 			printf("%s: Failed to establish SSL conn, err %d\n",
 			    __func__, err);
 
-			/* Give up */
-			if (retry++ > 1000) {
-				printf("can't connect, retry count %d\n",
-				    retry);
-				//continue;
-			}
-
+			printf("can't connect, retry count %d\n", retry);
 			mdx_sem_post(&sem_reconn);
 			mdx_usleep(1000000);
 			continue;
@@ -754,6 +746,8 @@ mqtt_test(void)
 	}
 
 	mdx_sem_init(&sem_reconn, 1);
+
+	lte_connect();
 
 #if 1
 	struct thread *td;
