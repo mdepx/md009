@@ -47,6 +47,8 @@ struct nrf_twim_softc twim1_sc;
 struct nrf_gpio_softc gpio0_sc;
 struct nrf_gpiote_softc gpiote1_sc;
 
+struct mdx_device dev_i2c;
+
 static void
 uart_putchar(int c, void *arg)
 {
@@ -95,7 +97,7 @@ board_init(void)
 	conf.pin_scl = PIN_MC_SCL;
 	conf.pin_sda = PIN_MC_SDA;
 
-	nrf_twim_init(&twim1_sc, BASE_TWIM1);
+	nrf_twim_init(&dev_i2c, &twim1_sc, BASE_TWIM1);
 	nrf_twim_setup(&twim1_sc, &conf);
 
 	nrf_gpio_pincfg(&gpio0_sc, PIN_MC_INTA, 0);

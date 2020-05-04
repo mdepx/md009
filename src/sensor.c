@@ -40,11 +40,9 @@
 #include "board.h"
 #include "sensor.h"
 
-extern struct nrf_twim_softc twim1_sc;
 extern struct nrf_gpiote_softc gpiote1_sc;
 
-static struct mc6470_dev dev;
-static struct i2c_bus i2cb;
+extern struct mdx_device dev_i2c;
 static mdx_sem_t sem;
 
 void
@@ -65,7 +63,7 @@ mc6470_thread(void *arg)
 		printf("%s: event received\n", __func__);
 
 		/* Ack the event by reading SR register. */
-		mc6470_read_reg(&dev, MC6470_SR, &val);
+		mc6470_read_reg(&dev_i2c, MC6470_SR, &val);
 	}
 }
 
@@ -76,11 +74,6 @@ sensor_init(void)
 	uint8_t val;
 	uint8_t reg;
 
-	i2cb.xfer = nrf_twim_xfer;
-	i2cb.arg = &twim1_sc;
-
-	dev.i2cb = &i2cb;
-
 	mdx_sem_init(&sem, 0);
 	td = mdx_thread_create("mc6470", 1, 0, 4096, mc6470_thread, NULL);
 	mdx_sched_add(td);
@@ -89,23 +82,23 @@ sensor_init(void)
 	    mc6470_intr, NULL);
 	nrf_gpiote_intctl(&gpiote1_sc, MC6470_GPIOTE_CFG_ID, true);
 
-	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_STANDBY);
+	mc6470_write_reg(&dev_i2c, MC6470_MODE, MODE_OPCON_STANDBY);
 	mdx_usleep(10000);
 
-	mc6470_write_reg(&dev, MC6470_SRTFR, SRTFR_RATE_64HZ);
-	mc6470_read_reg(&dev, MC6470_SRTFR, &val);
+	mc6470_write_reg(&dev_i2c, MC6470_SRTFR, SRTFR_RATE_64HZ);
+	mc6470_read_reg(&dev_i2c, MC6470_SRTFR, &val);
 	printf("%s: val %x\n", __func__, val);
 
-	mc6470_write_reg(&dev, MC6470_INTEN, INTEN_TIXPEN | INTEN_TIXNEN);
+	mc6470_write_reg(&dev_i2c, MC6470_INTEN, INTEN_TIXPEN | INTEN_TIXNEN);
 	reg = TAPEN_TAPXPEN | TAPEN_TAPXNEN | TAPEN_TAP_EN | TAPEN_THRDUR;
-	mc6470_write_reg(&dev, MC6470_TAPEN, reg);
-	mc6470_write_reg(&dev, MC6470_TTTRX, 4);
-	mc6470_write_reg(&dev, MC6470_TTTRY, 4);
-	mc6470_write_reg(&dev, MC6470_TTTRZ, 4);
-	mc6470_write_reg(&dev, MC6470_OUTCFG, OUTCFG_RANGE_2G);
-	mc6470_write_reg(&dev, MC6470_MODE, MODE_OPCON_WAKE);
+	mc6470_write_reg(&dev_i2c, MC6470_TAPEN, reg);
+	mc6470_write_reg(&dev_i2c, MC6470_TTTRX, 4);
+	mc6470_write_reg(&dev_i2c, MC6470_TTTRY, 4);
+	mc6470_write_reg(&dev_i2c, MC6470_TTTRZ, 4);
+	mc6470_write_reg(&dev_i2c, MC6470_OUTCFG, OUTCFG_RANGE_2G);
+	mc6470_write_reg(&dev_i2c, MC6470_MODE, MODE_OPCON_WAKE);
 	mdx_usleep(10000);
 
 	/* Ack any stale events by reading SR register. */
-	mc6470_read_reg(&dev, MC6470_SR, &val);
+	mc6470_read_reg(&dev_i2c, MC6470_SR, &val);
 }
