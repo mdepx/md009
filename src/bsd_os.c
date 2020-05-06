@@ -91,7 +91,7 @@ rpc_proxy_intr(void *arg, struct trapframe *tf, int irq)
 {
 	struct sleeping_thread *td;
 
-	printf(",");
+	dprintf(",");
 
 	bsd_os_application_irq_handler();
 
@@ -132,16 +132,14 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	}
 
 	/*
-	 * Note that rpc_proxy intr could fire right here.
+	 * Note that rpc_proxy interrupt could fire right here.
 	 * To handle that situation don't wait forever,
 	 * just set some reasonable timeout.
 	 */
-	if (val == -1)
-		tmout = 0; //10000000; /* 10 sec. */
+	if (val < 0)
+		tmout = 10000000; /* 10 sec. */
 	else if (val > 0)
 		tmout = val * 1000;
-	else
-		panic("val %d", val);
 
 	mdx_sem_init(&td.sem, 0);
 
@@ -158,11 +156,9 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	critical_exit();
 
 	if (err == 0) {
-		printf("%s: timeout\n", __func__);
-		//if (val == -1) {
-		//	bsd_os_application_irq_handler();
-		//	return (0);
-		//}
+		dprintf("%s: timeout\n", __func__);
+		if (val == -1)
+			return (0);
 		return (NRF_ETIMEDOUT);
 	}
 
