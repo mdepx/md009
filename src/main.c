@@ -36,7 +36,6 @@
 #include <net/netinet/in.h>
 #include <arpa/inet.h>
 
-#include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
 
 #include <nrfxlib/bsdlib/include/nrf_socket.h>
@@ -62,7 +61,6 @@
 #define	LC_MAX_READ_LENGTH	128
 #define	AT_CMD_SIZE(x)		(sizeof(x) - 1)
 
-extern struct arm_nvic_softc nvic_sc;
 extern struct nrf_uarte_softc uarte_sc;
 extern struct nrf_gpio_softc gpio0_sc;
 
@@ -102,22 +100,6 @@ static const char catm1_gps[] __unused = "AT%XSYSTEMMODE=1,0,1,0";
 static char buffer[LC_MAX_READ_LENGTH];
 static int buffer_fill;
 static int ready_to_send;
-
-void IPC_IRQHandler(void);
-
-static void
-ipc_proxy_intr(void *arg, struct trapframe *tf, int irq)
-{
-
-	IPC_IRQHandler();
-}
-
-void
-bsd_recoverable_error_handler(uint32_t error)
-{
-
-	printf("%s: error %d\n", __func__, error);
-}
 
 static void
 sw_ctl(bool gps_enable, bool onboard_antenna)
@@ -463,8 +445,6 @@ main(void)
 {
 	int error;
 
-	arm_nvic_setup_intr(&nvic_sc, ID_IPC,  ipc_proxy_intr,   NULL);
-	arm_nvic_set_prio(&nvic_sc, ID_IPC, 6);
 	nrf_uarte_register_callback(&uarte_sc, nrf_input, NULL);
 
 #if 0

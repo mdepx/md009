@@ -31,6 +31,7 @@
 #include <arm/nordicsemi/nrf9160.h>
 
 #include <nrfxlib/bsdlib/include/bsd_os.h>
+#include <nrfxlib/bsdlib/include/bsd.h>
 #include <nrfxlib/ble_controller/include/nrf_errno.h>
 
 #define	BSD_OS_DEBUG
@@ -43,6 +44,8 @@
 #endif
 
 extern struct arm_nvic_softc nvic_sc;
+
+void IPC_IRQHandler(void);
 
 struct sleeping_thread {
 	struct entry node;
@@ -77,6 +80,20 @@ td_next(struct sleeping_thread *td0)
 	td = CONTAINER_OF(td0->node.next, struct sleeping_thread, node);
 
 	return (td);
+}
+
+static void
+ipc_proxy_intr(void *arg, struct trapframe *tf, int irq)
+{
+
+	IPC_IRQHandler();
+}
+
+void
+bsd_recoverable_error_handler(uint32_t error)
+{
+
+	printf("%s: error %d\n", __func__, error);
 }
 
 static void
@@ -115,6 +132,9 @@ bsd_os_init(void)
 	arm_nvic_setup_intr(&nvic_sc, ID_EGU2, trace_proxy_intr, NULL);
 	arm_nvic_set_prio(&nvic_sc, ID_EGU2, 6);
 	arm_nvic_enable_intr(&nvic_sc, ID_EGU2);
+
+	arm_nvic_setup_intr(&nvic_sc, ID_IPC,  ipc_proxy_intr,   NULL);
+	arm_nvic_set_prio(&nvic_sc, ID_IPC, 6);
 }
 
 int32_t
@@ -147,7 +167,7 @@ bsd_os_timedwait(uint32_t context, int32_t * p_timeout)
 	list_append(&sleeping_thread_list, &td.node);
 	critical_exit();
 
-	printf("%s: %d\n", __func__, tmout);
+	dprintf("%s: %d\n", __func__, tmout);
 
 	err = mdx_sem_timedwait(&td.sem, tmout);
 
