@@ -56,6 +56,15 @@
 #define MBEDTLS_DEBUG
 #undef	MBEDTLS_DEBUG
 
+#define	MQTT_DEBUG
+#undef	MQTT_DEBUG
+
+#ifdef	MQTT_DEBUG
+#define	dprintf(fmt, ...)	printf(fmt, ##__VA_ARGS__)
+#else
+#define	dprintf(fmt, ...)
+#endif
+
 static struct mqtt_client client;
 static mbedtls_ssl_context ssl;
 static mbedtls_entropy_context entropy;
@@ -234,9 +243,9 @@ net_read(struct mqtt_network *net, uint8_t *buf, int len)
 {
 	size_t err;
 
-	printf("%s: len %d\n", __func__, len);
+	dprintf("%s: len %d\n", __func__, len);
 	err = mbedtls_ssl_read(&ssl, (unsigned char *)buf, len); //sizeof(buf));
-	printf("%s: err %d\n", __func__, err);
+	dprintf("%s: err %d\n", __func__, err);
 
 	if (err == MBEDTLS_ERR_SSL_TIMEOUT)
 		err = -1;
@@ -249,7 +258,7 @@ net_write(struct mqtt_network *net, uint8_t *buf, int len)
 {
 	size_t err;
 
-	printf("%s: len %d\n", __func__, len);
+	dprintf("%s: len %d\n", __func__, len);
 	err = mbedtls_ssl_write(&ssl, (const unsigned char *)buf, len);
 
 #if 0
@@ -257,7 +266,7 @@ net_write(struct mqtt_network *net, uint8_t *buf, int len)
 	    err != MBEDTLS_ERR_SSL_WANT_WRITE) {
 #endif
 
-	printf("%s: err %d\n", __func__, err);
+	dprintf("%s: err %d\n", __func__, err);
 
 	return (err);
 }
@@ -270,9 +279,9 @@ ssl_recv(void *arg, unsigned char *buf, size_t len)
 
 	fd = (int)arg;
 
-	printf("%s: len %d\n", __func__, len);
+	dprintf("%s: len %d\n", __func__, len);
 	err = nrf_recv(fd, buf, len, 0); //NRF_MSG_DONTWAIT);
-	printf("%s: err %d\n", __func__, err);
+	dprintf("%s: err %d\n", __func__, err);
 
 	return (err);
 }
@@ -291,11 +300,11 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 	fds.requested = NRF_POLLIN;
 	fds.returned = 0;
 
-	printf("%s: len %d, timeout %d\n", __func__, len, timeout);
+	dprintf("%s: len %d, timeout %d\n", __func__, len, timeout);
 
 	retval = nrf_poll(&fds, 1, timeout * 1000);
 
-	printf("%s: nrf_poll ret %d, returned %x\n", __func__,
+	dprintf("%s: nrf_poll ret %d, returned %x\n", __func__,
 	    retval, fds.returned);
 
 	if (retval == 0) /* timeout */
@@ -320,9 +329,9 @@ ssl_send(void *arg, const unsigned char *buf, size_t len)
 
 	fd = (int)arg;
 
-	printf("%s: len %d\n", __func__, len);
+	dprintf("%s: len %d\n", __func__, len);
 	err = nrf_send(fd, buf, len, 0);
-	printf("%s: err %d\n", __func__, err);
+	dprintf("%s: err %d\n", __func__, err);
 
 	return (err);
 }
