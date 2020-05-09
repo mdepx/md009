@@ -34,6 +34,9 @@
 #include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
 
+#include <dev/intc/intc.h>
+#include <dev/uart/uart.h>
+
 #include "board.h"
 #include "sensor.h"
 
@@ -48,19 +51,8 @@ struct nrf_gpio_softc gpio0_sc;
 struct nrf_gpiote_softc gpiote1_sc;
 
 struct mdx_device dev_i2c;
-
-static void
-uart_putchar(int c, void *arg)
-{
-	struct nrf_uarte_softc *sc;
- 
-	sc = arg;
- 
-	if (c == '\n')
-		nrf_uarte_putc(sc, '\r');
-
-	nrf_uarte_putc(sc, c);
-}
+struct mdx_device dev_nvic;
+struct mdx_device dev_uart;
 
 void
 board_init(void)
@@ -68,9 +60,11 @@ board_init(void)
 	struct nrf_twim_conf conf;
 	struct nrf_gpiote_conf gconf;
 
-	nrf_uarte_init(&uarte_sc, BASE_UARTE0,
-	    UART_PIN_TX, UART_PIN_RX, UART_BAUDRATE);
-	mdx_console_register(uart_putchar, (void *)&uarte_sc);
+	nrf_uarte_init(&dev_uart, &uarte_sc, BASE_UARTE0,
+	    UART_PIN_TX, UART_PIN_RX);
+	mdx_uart_setup(&dev_uart, UART_BAUDRATE, UART_DATABITS_8,
+	    UART_STOPBITS_1, UART_PARITY_NONE);
+	mdx_console_register_uart(&dev_uart);
 
 	mdx_fl_init();
 	mdx_fl_add_region(0x20004000, 0x0c000);
@@ -81,17 +75,17 @@ board_init(void)
 	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
 	nrf_gpiote_init(&gpiote1_sc, BASE_GPIOTE1);
 
-	arm_nvic_init(&nvic_sc, BASE_SCS);
+	arm_nvic_init(&dev_nvic, &nvic_sc, BASE_SCS);
 
-	arm_nvic_setup_intr(&nvic_sc, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
-	arm_nvic_setup_intr(&nvic_sc, ID_TIMER0, nrf_timer_intr, &timer0_sc);
-	arm_nvic_setup_intr(&nvic_sc, ID_TWIM1, nrf_twim_intr, &twim1_sc);
-	arm_nvic_setup_intr(&nvic_sc, ID_GPIOTE1, nrf_gpiote_intr, &gpiote1_sc);
+	mdx_intc_setup(&dev_nvic, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
+	mdx_intc_setup(&dev_nvic, ID_TIMER0, nrf_timer_intr, &timer0_sc);
+	mdx_intc_setup(&dev_nvic, ID_TWIM1, nrf_twim_intr, &twim1_sc);
+	mdx_intc_setup(&dev_nvic, ID_GPIOTE1, nrf_gpiote_intr, &gpiote1_sc);
 
-	arm_nvic_enable_intr(&nvic_sc, ID_TIMER0);
-	arm_nvic_enable_intr(&nvic_sc, ID_UARTE0);
-	arm_nvic_enable_intr(&nvic_sc, ID_TWIM1);
-	arm_nvic_enable_intr(&nvic_sc, ID_GPIOTE1);
+	mdx_intc_enable(&dev_nvic, ID_TIMER0);
+	mdx_intc_enable(&dev_nvic, ID_UARTE0);
+	mdx_intc_enable(&dev_nvic, ID_TWIM1);
+	mdx_intc_enable(&dev_nvic, ID_GPIOTE1);
 
 	conf.freq = TWIM_FREQ_K100;
 	conf.pin_scl = PIN_MC_SCL;
