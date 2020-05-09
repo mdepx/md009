@@ -46,7 +46,7 @@ extern struct mdx_device dev_i2c;
 static mdx_sem_t sem;
 
 void
-mc6470_intr(void *arg, struct trapframe *frame, int irq)
+mc6470_intr(void *arg, int irq)
 {
 
 	mdx_sem_post(&sem);
