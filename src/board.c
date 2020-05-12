@@ -34,25 +34,25 @@
 #include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
 
+#include <dev/gpio/gpio.h>
 #include <dev/intc/intc.h>
 #include <dev/uart/uart.h>
 
 #include "board.h"
 #include "sensor.h"
 
-struct arm_nvic_softc nvic_sc;
-
-struct nrf_spu_softc spu_sc;
-struct nrf_uarte_softc uarte_sc;
-struct nrf_power_softc power_sc;
-struct nrf_timer_softc timer0_sc;
-struct nrf_twim_softc twim1_sc;
-struct nrf_gpio_softc gpio0_sc;
+static struct arm_nvic_softc nvic_sc;
+static struct nrf_uarte_softc uarte_sc;
+static struct nrf_power_softc power_sc;
+static struct nrf_timer_softc timer0_sc;
+static struct nrf_twim_softc twim1_sc;
+static struct nrf_gpio_softc gpio0_sc;
 struct nrf_gpiote_softc gpiote1_sc;
 
-struct mdx_device dev_i2c;
-struct mdx_device dev_nvic;
-struct mdx_device dev_uart;
+struct mdx_device dev_i2c  = { .arg = &twim1_sc };
+struct mdx_device dev_nvic = { .arg =  &nvic_sc };
+struct mdx_device dev_uart = { .arg = &uarte_sc };
+struct mdx_device dev_gpio = { .arg = &gpio0_sc };
 
 void
 board_init(void)
@@ -60,8 +60,7 @@ board_init(void)
 	struct nrf_twim_conf conf;
 	struct nrf_gpiote_conf gconf;
 
-	nrf_uarte_init(&dev_uart, &uarte_sc, BASE_UARTE0,
-	    UART_PIN_TX, UART_PIN_RX);
+	nrf_uarte_init(&dev_uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
 	mdx_uart_setup(&dev_uart, UART_BAUDRATE, UART_DATABITS_8,
 	    UART_STOPBITS_1, UART_PARITY_NONE);
 	mdx_console_register_uart(&dev_uart);
@@ -72,10 +71,10 @@ board_init(void)
 
 	nrf_power_init(&power_sc, BASE_POWER);
 	nrf_timer_init(&timer0_sc, BASE_TIMER0, 1000000);
-	nrf_gpio_init(&gpio0_sc, BASE_GPIO);
+	nrf_gpio_init(&dev_gpio, BASE_GPIO);
 	nrf_gpiote_init(&gpiote1_sc, BASE_GPIOTE1);
 
-	arm_nvic_init(&dev_nvic, &nvic_sc, BASE_SCS);
+	arm_nvic_init(&dev_nvic, BASE_SCS);
 
 	mdx_intc_setup(&dev_nvic, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
 	mdx_intc_setup(&dev_nvic, ID_TIMER0, nrf_timer_intr, &timer0_sc);
@@ -91,11 +90,11 @@ board_init(void)
 	conf.pin_scl = PIN_MC_SCL;
 	conf.pin_sda = PIN_MC_SDA;
 
-	nrf_twim_init(&dev_i2c, &twim1_sc, BASE_TWIM1);
+	nrf_twim_init(&dev_i2c, BASE_TWIM1);
 	nrf_twim_setup(&twim1_sc, &conf);
 
-	nrf_gpio_pincfg(&gpio0_sc, PIN_MC_INTA, 0);
-	nrf_gpio_dirset(&gpio0_sc, PIN_MC_INTA, 0);
+	nrf_gpio_pincfg(&dev_gpio, PIN_MC_INTA, 0);
+	mdx_gpio_configure(&dev_gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
 
 	/* Configure GPIOTE for mc6470. */
 	gconf.pol = GPIOTE_POLARITY_HITOLO;
