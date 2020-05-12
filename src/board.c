@@ -49,10 +49,10 @@ static struct nrf_twim_softc twim1_sc;
 static struct nrf_gpio_softc gpio0_sc;
 struct nrf_gpiote_softc gpiote1_sc;
 
-struct mdx_device dev_i2c  = { .arg = &twim1_sc };
-struct mdx_device dev_nvic = { .arg =  &nvic_sc };
-struct mdx_device dev_uart = { .arg = &uarte_sc };
-struct mdx_device dev_gpio = { .arg = &gpio0_sc };
+struct mdx_device dev_i2c  = { .sc = &twim1_sc };
+struct mdx_device dev_nvic = { .sc =  &nvic_sc };
+struct mdx_device dev_uart = { .sc = &uarte_sc };
+struct mdx_device dev_gpio = { .sc = &gpio0_sc };
 
 void
 board_init(void)
