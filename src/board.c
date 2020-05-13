@@ -47,12 +47,13 @@ static struct nrf_power_softc power_sc;
 static struct nrf_timer_softc timer0_sc;
 static struct nrf_twim_softc twim1_sc;
 static struct nrf_gpio_softc gpio0_sc;
-struct nrf_gpiote_softc gpiote1_sc;
+static struct nrf_gpiote_softc gpiote1_sc;
 
-struct mdx_device dev_i2c  = { .sc = &twim1_sc };
-struct mdx_device dev_nvic = { .sc =  &nvic_sc };
-struct mdx_device dev_uart = { .sc = &uarte_sc };
-struct mdx_device dev_gpio = { .sc = &gpio0_sc };
+struct mdx_device dev_i2c    = { .sc = &twim1_sc };
+struct mdx_device dev_nvic   = { .sc =  &nvic_sc };
+struct mdx_device dev_uart   = { .sc = &uarte_sc };
+struct mdx_device dev_gpio   = { .sc = &gpio0_sc };
+struct mdx_device dev_gpiote = { .sc = &gpiote1_sc };
 
 void
 board_init(void)
@@ -72,7 +73,7 @@ board_init(void)
 	nrf_power_init(&power_sc, BASE_POWER);
 	nrf_timer_init(&timer0_sc, BASE_TIMER0, 1000000);
 	nrf_gpio_init(&dev_gpio, BASE_GPIO);
-	nrf_gpiote_init(&gpiote1_sc, BASE_GPIOTE1);
+	nrf_gpiote_init(&dev_gpiote, BASE_GPIOTE1);
 
 	arm_nvic_init(&dev_nvic, BASE_SCS);
 
@@ -100,7 +101,7 @@ board_init(void)
 	gconf.pol = GPIOTE_POLARITY_HITOLO;
 	gconf.mode = GPIOTE_MODE_EVENT;
 	gconf.pin = PIN_MC_INTA;
-	nrf_gpiote_config(&gpiote1_sc, MC6470_GPIOTE_CFG_ID, &gconf);
+	nrf_gpiote_config(&dev_gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
 
 	printf("mdepx initialized\n");
 }

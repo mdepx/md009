@@ -40,9 +40,9 @@
 #include "board.h"
 #include "sensor.h"
 
-extern struct nrf_gpiote_softc gpiote1_sc;
-
+extern struct mdx_device dev_gpiote;
 extern struct mdx_device dev_i2c;
+
 static mdx_sem_t sem;
 
 void
@@ -78,9 +78,9 @@ sensor_init(void)
 	td = mdx_thread_create("mc6470", 1, 0, 4096, mc6470_thread, NULL);
 	mdx_sched_add(td);
 
-	nrf_gpiote_setup_intr(&gpiote1_sc, MC6470_GPIOTE_CFG_ID,
+	nrf_gpiote_setup_intr(&dev_gpiote, MC6470_GPIOTE_CFG_ID,
 	    mc6470_intr, NULL);
-	nrf_gpiote_intctl(&gpiote1_sc, MC6470_GPIOTE_CFG_ID, true);
+	nrf_gpiote_intctl(&dev_gpiote, MC6470_GPIOTE_CFG_ID, true);
 
 	mc6470_write_reg(&dev_i2c, MC6470_MODE, MODE_OPCON_STANDBY);
 	mdx_usleep(10000);
