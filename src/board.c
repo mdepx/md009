@@ -54,6 +54,8 @@ struct mdx_device dev_nvic   = { .sc =  &nvic_sc };
 struct mdx_device dev_uart   = { .sc = &uarte_sc };
 struct mdx_device dev_gpio   = { .sc = &gpio0_sc };
 struct mdx_device dev_gpiote = { .sc = &gpiote1_sc };
+struct mdx_device dev_power  = { .sc = &power_sc };
+struct mdx_device dev_timer  = { .sc = &timer0_sc };
 
 void
 board_init(void)
@@ -70,8 +72,8 @@ board_init(void)
 	mdx_fl_add_region(0x20004000, 0x0c000);
 	mdx_fl_add_region(0x20030000, 0x10000);
 
-	nrf_power_init(&power_sc, BASE_POWER);
-	nrf_timer_init(&timer0_sc, BASE_TIMER0, 1000000);
+	nrf_power_init(&dev_power, BASE_POWER);
+	nrf_timer_init(&dev_timer, BASE_TIMER0, 1000000);
 	nrf_gpio_init(&dev_gpio, BASE_GPIO);
 	nrf_gpiote_init(&dev_gpiote, BASE_GPIOTE1);
 
