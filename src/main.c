@@ -63,9 +63,6 @@
 #define	LC_MAX_READ_LENGTH	128
 #define	AT_CMD_SIZE(x)		(sizeof(x) - 1)
 
-extern struct mdx_device dev_gpio;
-extern struct mdx_device dev_uart;
-
 static const char cind[] __unused = "AT+CIND?";
 static const char subscribe[] = "AT+CEREG=5";
 static const char lock_bands[] __unused =
@@ -115,55 +112,55 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 0: u.FL
 	 * 1: MN
 	 */
-	nrf_gpio_pincfg(&dev_gpio, PIN_SW1_CTL, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(&devs.gpio, PIN_SW1_CTL, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: LTE antenna switch
 	 * 0: MN
 	 * 1: u.FL
 	 */
-	nrf_gpio_pincfg(&dev_gpio, PIN_SW2_CTL, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(&devs.gpio, PIN_SW2_CTL, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: Fractus antenna switch
 	 * 0: LTE
 	 * 1: GPS
 	 */
-	nrf_gpio_pincfg(&dev_gpio, PIN_SW3_CTL, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(&devs.gpio, PIN_SW3_CTL, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
 
 	/* GPS Amplifier */
-	nrf_gpio_pincfg(&dev_gpio, PIN_GPS_AMP_EN, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(&devs.gpio, PIN_GPS_AMP_EN, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
 
 	/* LED1 */
-	nrf_gpio_pincfg(&dev_gpio, PIN_LED1, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_LED1, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(&dev_gpio, 0, PIN_LED1, 1);
+	nrf_gpio_pincfg(&devs.gpio, PIN_LED1, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_LED1, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(&devs.gpio, 0, PIN_LED1, 1);
 
 	/* LED2 */
-	nrf_gpio_pincfg(&dev_gpio, PIN_LED2, reg);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_LED2, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(&dev_gpio, 0, PIN_LED2, 1);
+	nrf_gpio_pincfg(&devs.gpio, PIN_LED2, reg);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_LED2, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(&devs.gpio, 0, PIN_LED2, 1);
 
 	if (gps_enable == false) {
 		/* LTE antenna */
 		if (onboard_antenna)
-			mdx_gpio_set(&dev_gpio, 0, PIN_SW2_CTL, 0);
+			mdx_gpio_set(&devs.gpio, 0, PIN_SW2_CTL, 0);
 		else
-			mdx_gpio_set(&dev_gpio, 0, PIN_SW2_CTL, 1);
-		mdx_gpio_set(&dev_gpio, 0, PIN_SW3_CTL, 0);
-		mdx_gpio_set(&dev_gpio, 0, PIN_GPS_AMP_EN, 0);
+			mdx_gpio_set(&devs.gpio, 0, PIN_SW2_CTL, 1);
+		mdx_gpio_set(&devs.gpio, 0, PIN_SW3_CTL, 0);
+		mdx_gpio_set(&devs.gpio, 0, PIN_GPS_AMP_EN, 0);
 	} else {
 		/* GPS antenna */
-		mdx_gpio_set(&dev_gpio, 0, PIN_SW3_CTL, 1);
+		mdx_gpio_set(&devs.gpio, 0, PIN_SW3_CTL, 1);
 		if (onboard_antenna)
-			mdx_gpio_set(&dev_gpio, 0, PIN_SW1_CTL, 1);
+			mdx_gpio_set(&devs.gpio, 0, PIN_SW1_CTL, 1);
 		else
-			mdx_gpio_set(&dev_gpio, 0, PIN_SW1_CTL, 0);
-		mdx_gpio_set(&dev_gpio, 0, PIN_GPS_AMP_EN, 1);
+			mdx_gpio_set(&devs.gpio, 0, PIN_SW1_CTL, 0);
+		mdx_gpio_set(&devs.gpio, 0, PIN_GPS_AMP_EN, 1);
 	}
 }
 
@@ -447,7 +444,7 @@ main(void)
 {
 	int error;
 
-	nrf_uarte_register_callback(&dev_uart, nrf_input, NULL);
+	nrf_uarte_register_callback(&devs.uart, nrf_input, NULL);
 
 #if 0
 	uint8_t rand[4];

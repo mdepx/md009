@@ -48,4 +48,14 @@
 #define	DISK_ADDRESS		0xfc000
 #define	DISK_SIZE		0x4000
 
+struct {
+	struct mdx_device i2c;
+	struct mdx_device nvic;
+	struct mdx_device uart;
+	struct mdx_device gpio;
+	struct mdx_device gpiote;
+	struct mdx_device power;
+	struct mdx_device timer;
+} devs;
+
 #endif /* !_SRC_BOARD_H_ */

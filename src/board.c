@@ -30,9 +30,12 @@
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/thread.h>
+#include <sys/of.h>
 
 #include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
+
+#include <lib/libfdt/libfdt.h>
 
 #include <dev/gpio/gpio.h>
 #include <dev/intc/intc.h>
@@ -41,69 +44,54 @@
 #include "board.h"
 #include "sensor.h"
 
-static struct arm_nvic_softc nvic_sc;
-static struct nrf_uarte_softc uarte_sc;
-static struct nrf_power_softc power_sc;
-static struct nrf_timer_softc timer0_sc;
-static struct nrf_twim_softc twim1_sc;
-static struct nrf_gpio_softc gpio0_sc;
-static struct nrf_gpiote_softc gpiote1_sc;
-
-struct mdx_device dev_i2c    = { .sc = &twim1_sc };
-struct mdx_device dev_nvic   = { .sc =  &nvic_sc };
-struct mdx_device dev_uart   = { .sc = &uarte_sc };
-struct mdx_device dev_gpio   = { .sc = &gpio0_sc };
-struct mdx_device dev_gpiote = { .sc = &gpiote1_sc };
-struct mdx_device dev_power  = { .sc = &power_sc };
-struct mdx_device dev_timer  = { .sc = &timer0_sc };
-
 void
 board_init(void)
 {
 	struct nrf_twim_conf conf;
 	struct nrf_gpiote_conf gconf;
 
-	nrf_uarte_init(&dev_uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
-	mdx_uart_setup(&dev_uart, UART_BAUDRATE, UART_DATABITS_8,
-	    UART_STOPBITS_1, UART_PARITY_NONE);
-	mdx_console_register_uart(&dev_uart);
-
+	/* Add some memory so devices could allocate softc. */
 	mdx_fl_init();
 	mdx_fl_add_region(0x20004000, 0x0c000);
 	mdx_fl_add_region(0x20030000, 0x10000);
 
-	nrf_power_init(&dev_power, BASE_POWER);
-	nrf_timer_init(&dev_timer, BASE_TIMER0, 1000000);
-	nrf_gpio_init(&dev_gpio, BASE_GPIO);
-	nrf_gpiote_init(&dev_gpiote, BASE_GPIOTE1);
+	nrf_uarte_init(&devs.uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
+	mdx_uart_setup(&devs.uart, UART_BAUDRATE, UART_DATABITS_8,
+	    UART_STOPBITS_1, UART_PARITY_NONE);
+	mdx_console_register_uart(&devs.uart);
 
-	arm_nvic_init(&dev_nvic, BASE_SCS);
+	nrf_power_init(&devs.power, BASE_POWER);
+	nrf_timer_init(&devs.timer, BASE_TIMER0, 1000000);
+	nrf_gpio_init(&devs.gpio, BASE_GPIO);
+	nrf_gpiote_init(&devs.gpiote, BASE_GPIOTE1);
 
-	mdx_intc_setup(&dev_nvic, ID_UARTE0, nrf_uarte_intr, &uarte_sc);
-	mdx_intc_setup(&dev_nvic, ID_TIMER0, nrf_timer_intr, &timer0_sc);
-	mdx_intc_setup(&dev_nvic, ID_TWIM1, nrf_twim_intr, &twim1_sc);
-	mdx_intc_setup(&dev_nvic, ID_GPIOTE1, nrf_gpiote_intr, &gpiote1_sc);
-
-	mdx_intc_enable(&dev_nvic, ID_TIMER0);
-	mdx_intc_enable(&dev_nvic, ID_UARTE0);
-	mdx_intc_enable(&dev_nvic, ID_TWIM1);
-	mdx_intc_enable(&dev_nvic, ID_GPIOTE1);
+	arm_nvic_init(&devs.nvic, BASE_SCS);
 
 	conf.freq = TWIM_FREQ_K100;
 	conf.pin_scl = PIN_MC_SCL;
 	conf.pin_sda = PIN_MC_SDA;
 
-	nrf_twim_init(&dev_i2c, BASE_TWIM1);
-	nrf_twim_setup(&twim1_sc, &conf);
+	nrf_twim_init(&devs.i2c, BASE_TWIM1);
+	nrf_twim_setup(&devs.i2c, &conf);
 
-	nrf_gpio_pincfg(&dev_gpio, PIN_MC_INTA, 0);
-	mdx_gpio_configure(&dev_gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
+	nrf_gpio_pincfg(&devs.gpio, PIN_MC_INTA, 0);
+	mdx_gpio_configure(&devs.gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
 
 	/* Configure GPIOTE for mc6470. */
 	gconf.pol = GPIOTE_POLARITY_HITOLO;
 	gconf.mode = GPIOTE_MODE_EVENT;
 	gconf.pin = PIN_MC_INTA;
-	nrf_gpiote_config(&dev_gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
+	nrf_gpiote_config(&devs.gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
+
+	mdx_intc_setup(&devs.nvic, ID_UARTE0, nrf_uarte_intr, devs.uart.sc);
+	mdx_intc_setup(&devs.nvic, ID_TIMER0, nrf_timer_intr, devs.timer.sc);
+	mdx_intc_setup(&devs.nvic, ID_TWIM1, nrf_twim_intr, devs.i2c.sc);
+	mdx_intc_setup(&devs.nvic, ID_GPIOTE1, nrf_gpiote_intr, devs.gpiote.sc);
+
+	mdx_intc_enable(&devs.nvic, ID_TIMER0);
+	mdx_intc_enable(&devs.nvic, ID_UARTE0);
+	mdx_intc_enable(&devs.nvic, ID_TWIM1);
+	mdx_intc_enable(&devs.nvic, ID_GPIOTE1);
 
 	printf("mdepx initialized\n");
 }
