@@ -32,7 +32,6 @@
 #include <sys/thread.h>
 #include <sys/of.h>
 
-#include <arm/arm/nvic.h>
 #include <arm/nordicsemi/nrf9160.h>
 
 #include <lib/libfdt/libfdt.h>
@@ -44,54 +43,55 @@
 #include "board.h"
 #include "sensor.h"
 
+static struct mdx_device low_uart;
+
 void
 board_init(void)
 {
-	struct nrf_twim_conf conf;
 	struct nrf_gpiote_conf gconf;
+	mdx_device_t nvic, gpio, gpiote, uart;
 
 	/* Add some memory so devices could allocate softc. */
 	mdx_fl_init();
 	mdx_fl_add_region(0x20004000, 0x0c000);
 	mdx_fl_add_region(0x20030000, 0x10000);
 
-	nrf_uarte_init(&devs.uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
-	mdx_uart_setup(&devs.uart, UART_BAUDRATE, UART_DATABITS_8,
+	nrf_uarte_init(&low_uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
+	mdx_uart_setup(&low_uart, UART_BAUDRATE, UART_DATABITS_8,
 	    UART_STOPBITS_1, UART_PARITY_NONE);
-	mdx_console_register_uart(&devs.uart);
+	mdx_console_register_uart(&low_uart);
 
-	nrf_power_init(&devs.power, BASE_POWER);
-	nrf_timer_init(&devs.timer, BASE_TIMER0, 1000000);
-	nrf_gpio_init(&devs.gpio, BASE_GPIO);
-	nrf_gpiote_init(&devs.gpiote, BASE_GPIOTE1);
+	mdx_of_install_dtbp((void *)0xf8000);
+	mdx_of_probe_devices();
 
-	arm_nvic_init(&devs.nvic, BASE_SCS);
+	uart = mdx_device_lookup_by_name("nrf_uarte", 0);
+	if (!uart)
+		panic("uart dev not found");
 
-	conf.freq = TWIM_FREQ_K100;
-	conf.pin_scl = PIN_MC_SCL;
-	conf.pin_sda = PIN_MC_SDA;
+	gpio = mdx_device_lookup_by_name("nrf_gpio", 0);
+	if (!gpio)
+		panic("gpio dev not found");
 
-	nrf_twim_init(&devs.i2c, BASE_TWIM1);
-	nrf_twim_setup(&devs.i2c, &conf);
-
-	nrf_gpio_pincfg(&devs.gpio, PIN_MC_INTA, 0);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
+	nrf_gpio_pincfg(gpio, PIN_MC_INTA, 0);
+	mdx_gpio_configure(gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
 
 	/* Configure GPIOTE for mc6470. */
+	gpiote = mdx_device_lookup_by_name("nrf_gpiote", 0);
+	if (!gpiote)
+		panic("gpiote dev not found");
+
 	gconf.pol = GPIOTE_POLARITY_HITOLO;
 	gconf.mode = GPIOTE_MODE_EVENT;
 	gconf.pin = PIN_MC_INTA;
-	nrf_gpiote_config(&devs.gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
+	nrf_gpiote_config(gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
 
-	mdx_intc_setup(&devs.nvic, ID_UARTE0, nrf_uarte_intr, devs.uart.sc);
-	mdx_intc_setup(&devs.nvic, ID_TIMER0, nrf_timer_intr, devs.timer.sc);
-	mdx_intc_setup(&devs.nvic, ID_TWIM1, nrf_twim_intr, devs.i2c.sc);
-	mdx_intc_setup(&devs.nvic, ID_GPIOTE1, nrf_gpiote_intr, devs.gpiote.sc);
+	nvic = mdx_device_lookup_by_name("nvic", 0);
+	if (!nvic)
+		panic("nvic dev not found");
 
-	mdx_intc_enable(&devs.nvic, ID_TIMER0);
-	mdx_intc_enable(&devs.nvic, ID_UARTE0);
-	mdx_intc_enable(&devs.nvic, ID_TWIM1);
-	mdx_intc_enable(&devs.nvic, ID_GPIOTE1);
+	mdx_intc_enable(nvic, ID_TIMER0);
+	mdx_intc_enable(nvic, ID_TWIM1);
+	mdx_intc_enable(nvic, ID_GPIOTE1);
 
 	printf("mdepx initialized\n");
 }

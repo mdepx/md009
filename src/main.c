@@ -38,6 +38,7 @@
 
 #include <arm/nordicsemi/nrf9160.h>
 
+#include <nrfxlib/bsdlib/include/bsd_platform.h>
 #include <nrfxlib/bsdlib/include/nrf_socket.h>
 #include <nrfxlib/bsdlib/include/bsd.h>
 #include <nrfxlib/bsdlib/include/bsd_os.h>
@@ -99,6 +100,7 @@ static const char catm1_gps[] __unused = "AT%XSYSTEMMODE=1,0,1,0";
 static char buffer[LC_MAX_READ_LENGTH];
 static int buffer_fill;
 static int ready_to_send;
+static mdx_device_t gpio;
 
 static void
 sw_ctl(bool gps_enable, bool onboard_antenna)
@@ -112,55 +114,55 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 0: u.FL
 	 * 1: MN
 	 */
-	nrf_gpio_pincfg(&devs.gpio, PIN_SW1_CTL, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(gpio, PIN_SW1_CTL, reg);
+	mdx_gpio_configure(gpio, 0, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: LTE antenna switch
 	 * 0: MN
 	 * 1: u.FL
 	 */
-	nrf_gpio_pincfg(&devs.gpio, PIN_SW2_CTL, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(gpio, PIN_SW2_CTL, reg);
+	mdx_gpio_configure(gpio, 0, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: Fractus antenna switch
 	 * 0: LTE
 	 * 1: GPS
 	 */
-	nrf_gpio_pincfg(&devs.gpio, PIN_SW3_CTL, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(gpio, PIN_SW3_CTL, reg);
+	mdx_gpio_configure(gpio, 0, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
 
 	/* GPS Amplifier */
-	nrf_gpio_pincfg(&devs.gpio, PIN_GPS_AMP_EN, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
+	nrf_gpio_pincfg(gpio, PIN_GPS_AMP_EN, reg);
+	mdx_gpio_configure(gpio, 0, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
 
 	/* LED1 */
-	nrf_gpio_pincfg(&devs.gpio, PIN_LED1, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_LED1, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(&devs.gpio, 0, PIN_LED1, 1);
+	nrf_gpio_pincfg(gpio, PIN_LED1, reg);
+	mdx_gpio_configure(gpio, 0, PIN_LED1, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(gpio, 0, PIN_LED1, 1);
 
 	/* LED2 */
-	nrf_gpio_pincfg(&devs.gpio, PIN_LED2, reg);
-	mdx_gpio_configure(&devs.gpio, 0, PIN_LED2, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(&devs.gpio, 0, PIN_LED2, 1);
+	nrf_gpio_pincfg(gpio, PIN_LED2, reg);
+	mdx_gpio_configure(gpio, 0, PIN_LED2, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(gpio, 0, PIN_LED2, 1);
 
 	if (gps_enable == false) {
 		/* LTE antenna */
 		if (onboard_antenna)
-			mdx_gpio_set(&devs.gpio, 0, PIN_SW2_CTL, 0);
+			mdx_gpio_set(gpio, 0, PIN_SW2_CTL, 0);
 		else
-			mdx_gpio_set(&devs.gpio, 0, PIN_SW2_CTL, 1);
-		mdx_gpio_set(&devs.gpio, 0, PIN_SW3_CTL, 0);
-		mdx_gpio_set(&devs.gpio, 0, PIN_GPS_AMP_EN, 0);
+			mdx_gpio_set(gpio, 0, PIN_SW2_CTL, 1);
+		mdx_gpio_set(gpio, 0, PIN_SW3_CTL, 0);
+		mdx_gpio_set(gpio, 0, PIN_GPS_AMP_EN, 0);
 	} else {
 		/* GPS antenna */
-		mdx_gpio_set(&devs.gpio, 0, PIN_SW3_CTL, 1);
+		mdx_gpio_set(gpio, 0, PIN_SW3_CTL, 1);
 		if (onboard_antenna)
-			mdx_gpio_set(&devs.gpio, 0, PIN_SW1_CTL, 1);
+			mdx_gpio_set(gpio, 0, PIN_SW1_CTL, 1);
 		else
-			mdx_gpio_set(&devs.gpio, 0, PIN_SW1_CTL, 0);
-		mdx_gpio_set(&devs.gpio, 0, PIN_GPS_AMP_EN, 1);
+			mdx_gpio_set(gpio, 0, PIN_SW1_CTL, 0);
+		mdx_gpio_set(gpio, 0, PIN_GPS_AMP_EN, 1);
 	}
 }
 
@@ -351,6 +353,8 @@ lte_connect(void)
 	int err;
 	int fd;
 
+	printf("%s\n", __func__);
+
 	fd = nrf_socket(NRF_AF_LTE, NRF_SOCK_DGRAM, NRF_PROTO_AT);
 	if (fd < 0) {
 		printf("failed to create socket\n");
@@ -442,9 +446,18 @@ nrf_input(int c, void *arg)
 int
 main(void)
 {
+	bsd_init_params_t init_params;
+	mdx_device_t uart;
 	int error;
 
-	nrf_uarte_register_callback(&devs.uart, nrf_input, NULL);
+	uart = mdx_device_lookup_by_name("nrf_uarte", 0);
+	if (!uart)
+		panic("uart dev not found");
+	nrf_uarte_register_callback(uart, nrf_input, NULL);
+
+	gpio = mdx_device_lookup_by_name("nrf_gpio", 0);
+	if (!gpio)
+		panic("gpio dev not found");
 
 #if 0
 	uint8_t rand[4];
@@ -459,7 +472,10 @@ main(void)
 	/* Switch to LTE */
 	sw_ctl(false, true);
 
-	bsd_init();
+	init_params.trace_on = true;
+	init_params.bsd_memory_address = BSD_RESERVED_MEMORY_ADDRESS;
+	init_params.bsd_memory_size = BSD_RESERVED_MEMORY_SIZE;
+	bsd_init(&init_params);
 
 	printf("bsd library initialized\n");
 
