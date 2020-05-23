@@ -49,7 +49,7 @@ void
 board_init(void)
 {
 	struct nrf_gpiote_conf gconf;
-	mdx_device_t nvic, gpio, gpiote, uart;
+	mdx_device_t gpio, gpiote, uart;
 
 	/* Add some memory so devices could allocate softc. */
 	mdx_fl_init();
@@ -84,14 +84,6 @@ board_init(void)
 	gconf.mode = GPIOTE_MODE_EVENT;
 	gconf.pin = PIN_MC_INTA;
 	nrf_gpiote_config(gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
-
-	nvic = mdx_device_lookup_by_name("nvic", 0);
-	if (!nvic)
-		panic("nvic dev not found");
-
-	mdx_intc_enable(nvic, ID_TIMER0);
-	mdx_intc_enable(nvic, ID_TWIM1);
-	mdx_intc_enable(nvic, ID_GPIOTE1);
 
 	printf("mdepx initialized\n");
 }
