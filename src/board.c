@@ -43,30 +43,19 @@
 #include "board.h"
 #include "sensor.h"
 
-static struct mdx_device low_uart;
-
 void
 board_init(void)
 {
 	struct nrf_gpiote_conf gconf;
-	mdx_device_t gpio, gpiote, uart;
+	mdx_device_t gpio, gpiote;
 
-	/* Add some memory so devices could allocate softc. */
+	/* Add some memory so OF could allocate devices and their softc. */
 	mdx_fl_init();
 	mdx_fl_add_region(0x20004000, 0x0c000);
 	mdx_fl_add_region(0x20030000, 0x10000);
 
-	nrf_uarte_init(&low_uart, BASE_UARTE0, UART_PIN_TX, UART_PIN_RX);
-	mdx_uart_setup(&low_uart, UART_BAUDRATE, UART_DATABITS_8,
-	    UART_STOPBITS_1, UART_PARITY_NONE);
-	mdx_console_register_uart(&low_uart);
-
 	mdx_of_install_dtbp((void *)0xf8000);
 	mdx_of_probe_devices();
-
-	uart = mdx_device_lookup_by_name("nrf_uarte", 0);
-	if (!uart)
-		panic("uart dev not found");
 
 	gpio = mdx_device_lookup_by_name("nrf_gpio", 0);
 	if (!gpio)
