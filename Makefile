@@ -23,6 +23,13 @@ dtb:
 	nrfjprog -f NRF91 --erasepage 0xf8000-0xfc000
 	nrfjprog -f NRF91 --program obj/md009.dtb.hex -r
 
+flash:
+	nrfjprog -f NRF91 --erasepage 0x40000-0xf8000
+	nrfjprog -f NRF91 --program obj/md009.hex -r
+
+reset:
+	nrfjprog -f NRF91 -r
+
 clean:
 	@rm -rf obj/*
 
