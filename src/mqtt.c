@@ -296,9 +296,9 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 
 	fd = (int)arg;
 
-	fds.handle = fd;
-	fds.requested = NRF_POLLIN;
-	fds.returned = 0;
+	fds.fd = fd;
+	fds.events = NRF_POLLIN;
+	fds.revents = 0;
 
 	dprintf("%s: len %d, timeout %d\n", __func__, len, timeout);
 
@@ -315,7 +315,7 @@ ssl_recv_timeout(void *arg, unsigned char *buf, size_t len, uint32_t timeout)
 
 	err = 0;
 
-	if (fds.returned & NRF_POLLIN)
+	if (fds.revents & NRF_POLLIN)
 		err = nrf_recv(fd, buf, len, 0);
 
 	return (err);
