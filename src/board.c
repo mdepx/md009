@@ -47,7 +47,7 @@ void
 board_init(void)
 {
 	struct nrf_gpiote_conf gconf;
-	mdx_device_t gpio, gpiote;
+	mdx_device_t dev;
 
 	/* Add some memory so OF could allocate devices and their softc. */
 	mdx_fl_init();
@@ -57,22 +57,26 @@ board_init(void)
 	mdx_of_install_dtbp((void *)0xf8000);
 	mdx_of_probe_devices();
 
-	gpio = mdx_device_lookup_by_name("nrf_gpio", 0);
-	if (!gpio)
+	dev = mdx_device_lookup_by_name("nrf_gpio", 0);
+	if (!dev)
 		panic("gpio dev not found");
-
-	nrf_gpio_pincfg(gpio, PIN_MC_INTA, 0);
-	mdx_gpio_configure(gpio, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
+	nrf_gpio_pincfg(dev, PIN_MC_INTA, 0);
+	mdx_gpio_configure(dev, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
 
 	/* Configure GPIOTE for mc6470. */
-	gpiote = mdx_device_lookup_by_name("nrf_gpiote", 0);
-	if (!gpiote)
+	dev = mdx_device_lookup_by_name("nrf_gpiote", 0);
+	if (!dev)
 		panic("gpiote dev not found");
-
 	gconf.pol = GPIOTE_POLARITY_HITOLO;
 	gconf.mode = GPIOTE_MODE_EVENT;
 	gconf.pin = PIN_MC_INTA;
-	nrf_gpiote_config(gpiote, MC6470_GPIOTE_CFG_ID, &gconf);
+	nrf_gpiote_config(dev, MC6470_GPIOTE_CFG_ID, &gconf);
+
+	/* Enable the instruction cache. */
+	dev = mdx_device_lookup_by_name("nrf_nvmc", 0);
+	if (!dev)
+		panic("nvmc dev not found");
+	nrf_nvmc_icache_control(dev, true);
 
 	printf("mdepx initialized\n");
 }
