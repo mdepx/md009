@@ -34,8 +34,6 @@
 
 #include <arm/nordicsemi/nrf9160.h>
 
-#include <lib/libfdt/libfdt.h>
-
 #include <dev/gpio/gpio.h>
 #include <dev/intc/intc.h>
 #include <dev/uart/uart.h>
