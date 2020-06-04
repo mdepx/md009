@@ -40,6 +40,8 @@
 #include "board.h"
 #include "sensor.h"
 
+#include <lib/msun/src/math.h>
+
 static mdx_sem_t sem;
 static mdx_device_t i2c;
 static mdx_device_t gpiote;
@@ -52,6 +54,45 @@ mc6470_intr(void *arg, int irq)
 }
 
 static void
+mc6470_mag_read(void)
+{
+	int16_t x, y, z;
+	uint8_t vals[6];
+	uint8_t ctrl1;
+	float a;
+	float xf, yf;
+
+	mc6470_read_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL1, &ctrl1);
+
+	bzero(vals, 6);
+	mc6470_read_data(i2c, MC6470_MAG, MC6470_MAG_XOUTL, 6, vals);
+
+	x = vals[1] << 8 | vals[0] << 0;
+	y = vals[3] << 8 | vals[2] << 0;
+	z = vals[5] << 8 | vals[4] << 0;
+
+	if (1 == 0) {
+		printf("%d/%d, %d/%d, %d/%d\n",
+		    vals[0], vals[1],
+		    vals[2], vals[3],
+		    vals[4], vals[5]);
+		return;
+	}
+
+	if (1 == 0) {
+		printf("%d,%d,%d\n", x, y, z);
+		return;
+	}
+
+	xf = x * 0.15f;
+	yf = y * 0.15f;
+
+	a = atan2(yf, xf) * 180 / 3.14159265359;
+
+	printf("x %d, y %d, z %d, heading %.2f\n", x, y, z, a);
+}
+
+static void
 mc6470_thread(void *arg)
 {
 	uint8_t val;
@@ -59,16 +100,17 @@ mc6470_thread(void *arg)
 	while (1) {
 		mdx_sem_wait(&sem);
 
-		printf("%s: event received\n", __func__);
+		//printf("%s: event received\n", __func__);
 
 		/* Ack the event by reading SR register. */
-		mc6470_read_reg(i2c, MC6470_SR, &val);
+		mc6470_read_reg(i2c, MC6470_ACC, MC6470_SR, &val);
 	}
 }
 
 void
 sensor_init(void)
 {
+	int16_t xoffs, yoffs, zoffs;
 	struct thread *td;
 	uint8_t val;
 	uint8_t reg;
@@ -89,23 +131,62 @@ sensor_init(void)
 	    mc6470_intr, NULL);
 	nrf_gpiote_intctl(gpiote, MC6470_GPIOTE_CFG_ID, true);
 
-	mc6470_write_reg(i2c, MC6470_MODE, MODE_OPCON_STANDBY);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_MODE, MODE_OPCON_STANDBY);
 	mdx_usleep(10000);
 
-	mc6470_write_reg(i2c, MC6470_SRTFR, SRTFR_RATE_64HZ);
-	mc6470_read_reg(i2c, MC6470_SRTFR, &val);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_SRTFR, SRTFR_RATE_64HZ);
+	mc6470_read_reg(i2c, MC6470_ACC, MC6470_SRTFR, &val);
 	printf("%s: val %x\n", __func__, val);
 
-	mc6470_write_reg(i2c, MC6470_INTEN, INTEN_TIXPEN | INTEN_TIXNEN);
+	reg = INTEN_TIXPEN | INTEN_TIXNEN;
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_INTEN, reg);
 	reg = TAPEN_TAPXPEN | TAPEN_TAPXNEN | TAPEN_TAP_EN | TAPEN_THRDUR;
-	mc6470_write_reg(i2c, MC6470_TAPEN, reg);
-	mc6470_write_reg(i2c, MC6470_TTTRX, 4);
-	mc6470_write_reg(i2c, MC6470_TTTRY, 4);
-	mc6470_write_reg(i2c, MC6470_TTTRZ, 4);
-	mc6470_write_reg(i2c, MC6470_OUTCFG, OUTCFG_RANGE_2G);
-	mc6470_write_reg(i2c, MC6470_MODE, MODE_OPCON_WAKE);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_TAPEN, reg);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_TTTRX, 4);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_TTTRY, 4);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_TTTRZ, 4);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_OUTCFG, OUTCFG_RANGE_2G);
+	mc6470_write_reg(i2c, MC6470_ACC, MC6470_MODE, MODE_OPCON_WAKE);
 	mdx_usleep(10000);
 
 	/* Ack any stale events by reading SR register. */
-	mc6470_read_reg(i2c, MC6470_SR, &val);
+	mc6470_read_reg(i2c, MC6470_ACC, MC6470_SR, &val);
+
+	/* Magnetometer. */
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL4,
+	    0x80 | MAG_CTRL4_RS);
+
+	mc6470_read_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL1, &val);
+	val &= ~MAG_CTRL1_FS;
+	val |= MAG_CTRL1_PC;
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL1, val);
+
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL4,
+	    0x80 | MAG_CTRL4_RS);
+
+	xoffs = 85;
+	yoffs = 60;
+	zoffs = -99;
+
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_XOFFL, xoffs & 0xff);
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_XOFFH, xoffs >> 8);
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_YOFFL, yoffs & 0xff);
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_YOFFH, yoffs >> 8);
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_ZOFFL, zoffs & 0xff);
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_ZOFFH, zoffs >> 8);
+
+#if 0
+	mc6470_read_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL3, &val);
+	val |= MAG_CTRL3_OCL;
+	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL3, val);
+	mdx_usleep(5000000);
+#endif
+
+	mdx_usleep(100000);
+
+	while (1) {
+		mc6470_mag_read();
+		mdx_usleep(400000);
+		break;
+	}
 }
