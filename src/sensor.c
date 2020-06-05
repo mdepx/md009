@@ -54,22 +54,60 @@ mc6470_intr(void *arg, int irq)
 }
 
 static void
-mc6470_mag_read(void)
+mc6470_ecompass(int16_t mag_x, int16_t mag_y, int16_t mag_z,
+    int16_t acc_x, int16_t acc_y, int16_t acc_z)
 {
-	int16_t x, y, z;
+	double pitch, roll, azimuth;
+	double X_h, Y_h;
+	int16_t p, r, az;
+
+	/* Calculate pitch and roll, in the range (-pi, pi). */
+	pitch = atan2((double) - acc_x,
+	    sqrt((long)acc_z * (long)acc_z + (long)acc_y * (long)acc_y));
+	roll = atan2((double)acc_y,
+	    sqrt((long)acc_z * (long)acc_z + (long)acc_x * (long)acc_x));
+
+	X_h = (double)mag_x * cos(pitch) +
+	    (double)mag_y * sin(roll) * sin(pitch) +
+	    (double)mag_z * cos(roll) * sin(pitch);
+
+	Y_h = (double)mag_y * cos(roll) -
+	    (double)mag_z * sin(roll);
+
+	azimuth = atan2(Y_h, X_h);
+	if(azimuth < 0)	/* Convert Azimuth in the range (0, 2pi) */
+		azimuth = 2 * M_PI + azimuth;
+
+	az = (int16_t)(azimuth * 180.0 / M_PI);
+	p = (int16_t)(pitch * 180.0 / M_PI);
+	r = (int16_t)(roll * 180.0 / M_PI);
+
+	printf("pitch %3d, roll %3d, azimuth %3d\n", p, r, az);
+}
+
+static void
+mc6470_process(void)
+{
+	int16_t mag_x, mag_y, mag_z;
+	int16_t acc_x, acc_y, acc_z;
 	uint8_t vals[6];
 	uint8_t ctrl1;
-	float a;
 	float xf, yf;
+	float a;
 
 	mc6470_read_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL1, &ctrl1);
 
 	bzero(vals, 6);
 	mc6470_read_data(i2c, MC6470_MAG, MC6470_MAG_XOUTL, 6, vals);
+	mag_x = vals[1] << 8 | vals[0] << 0;
+	mag_y = vals[3] << 8 | vals[2] << 0;
+	mag_z = vals[5] << 8 | vals[4] << 0;
 
-	x = vals[1] << 8 | vals[0] << 0;
-	y = vals[3] << 8 | vals[2] << 0;
-	z = vals[5] << 8 | vals[4] << 0;
+	bzero(vals, 6);
+	mc6470_read_data(i2c, MC6470_ACC, MC6470_XOUT_EX_L, 6, vals);
+	acc_x = vals[1] << 8 | vals[0] << 0;
+	acc_y = vals[3] << 8 | vals[2] << 0;
+	acc_z = vals[5] << 8 | vals[4] << 0;
 
 	if (1 == 0) {
 		printf("%d/%d, %d/%d, %d/%d\n",
@@ -80,16 +118,21 @@ mc6470_mag_read(void)
 	}
 
 	if (1 == 0) {
-		printf("%d,%d,%d\n", x, y, z);
+		printf("%d,%d,%d\n", mag_x, mag_y, mag_z);
 		return;
 	}
 
-	xf = x * 0.15f;
-	yf = y * 0.15f;
+	if (1 == 0) {
+		xf = mag_x * 0.15f;
+		yf = mag_y * 0.15f;
+		a = atan2(yf, xf) * 180 / M_PI;
 
-	a = atan2(yf, xf) * 180 / 3.14159265359;
+		printf("x %d, y %d, z %d, heading %.2f\n",
+		    mag_x, mag_y, mag_z, a);
+		return;
+	}
 
-	printf("x %d, y %d, z %d, heading %.2f\n", x, y, z, a);
+	mc6470_ecompass(mag_x, mag_y, mag_z, acc_x, acc_y, acc_z);
 }
 
 static void
@@ -164,9 +207,9 @@ sensor_init(void)
 	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL4,
 	    0x80 | MAG_CTRL4_RS);
 
-	xoffs = 85;
-	yoffs = 60;
-	zoffs = -99;
+	xoffs = 228;
+	yoffs = -859;
+	zoffs = 274;
 
 	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_XOFFL, xoffs & 0xff);
 	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_XOFFH, xoffs >> 8);
@@ -185,8 +228,7 @@ sensor_init(void)
 	mdx_usleep(100000);
 
 	while (1) {
-		mc6470_mag_read();
-		mdx_usleep(400000);
-		break;
+		mc6470_process();
+		mdx_usleep(100000);
 	}
 }
