@@ -115,7 +115,7 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 1: MN
 	 */
 	nrf_gpio_pincfg(gpio, PIN_SW1_CTL, reg);
-	mdx_gpio_configure(gpio, 0, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
+	mdx_gpio_configure(gpio, PIN_SW1_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: LTE antenna switch
@@ -123,7 +123,7 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 1: u.FL
 	 */
 	nrf_gpio_pincfg(gpio, PIN_SW2_CTL, reg);
-	mdx_gpio_configure(gpio, 0, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
+	mdx_gpio_configure(gpio, PIN_SW2_CTL, MDX_GPIO_OUTPUT);
 
 	/*
 	 * SW2: Fractus antenna switch
@@ -131,38 +131,38 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	 * 1: GPS
 	 */
 	nrf_gpio_pincfg(gpio, PIN_SW3_CTL, reg);
-	mdx_gpio_configure(gpio, 0, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
+	mdx_gpio_configure(gpio, PIN_SW3_CTL, MDX_GPIO_OUTPUT);
 
 	/* GPS Amplifier */
 	nrf_gpio_pincfg(gpio, PIN_GPS_AMP_EN, reg);
-	mdx_gpio_configure(gpio, 0, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
+	mdx_gpio_configure(gpio, PIN_GPS_AMP_EN, MDX_GPIO_OUTPUT);
 
 	/* LED1 */
 	nrf_gpio_pincfg(gpio, PIN_LED1, reg);
-	mdx_gpio_configure(gpio, 0, PIN_LED1, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(gpio, 0, PIN_LED1, 1);
+	mdx_gpio_configure(gpio, PIN_LED1, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(gpio, PIN_LED1, 0);
 
 	/* LED2 */
 	nrf_gpio_pincfg(gpio, PIN_LED2, reg);
-	mdx_gpio_configure(gpio, 0, PIN_LED2, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(gpio, 0, PIN_LED2, 1);
+	mdx_gpio_configure(gpio, PIN_LED2, MDX_GPIO_OUTPUT);
+	mdx_gpio_set(gpio, PIN_LED2, 0);
 
 	if (gps_enable == false) {
 		/* LTE antenna */
 		if (onboard_antenna)
-			mdx_gpio_set(gpio, 0, PIN_SW2_CTL, 0);
+			mdx_gpio_set(gpio, PIN_SW2_CTL, 0);
 		else
-			mdx_gpio_set(gpio, 0, PIN_SW2_CTL, 1);
-		mdx_gpio_set(gpio, 0, PIN_SW3_CTL, 0);
-		mdx_gpio_set(gpio, 0, PIN_GPS_AMP_EN, 0);
+			mdx_gpio_set(gpio, PIN_SW2_CTL, 1);
+		mdx_gpio_set(gpio, PIN_SW3_CTL, 0);
+		mdx_gpio_set(gpio, PIN_GPS_AMP_EN, 0);
 	} else {
 		/* GPS antenna */
-		mdx_gpio_set(gpio, 0, PIN_SW3_CTL, 1);
+		mdx_gpio_set(gpio, PIN_SW3_CTL, 1);
 		if (onboard_antenna)
-			mdx_gpio_set(gpio, 0, PIN_SW1_CTL, 1);
+			mdx_gpio_set(gpio, PIN_SW1_CTL, 1);
 		else
-			mdx_gpio_set(gpio, 0, PIN_SW1_CTL, 0);
-		mdx_gpio_set(gpio, 0, PIN_GPS_AMP_EN, 1);
+			mdx_gpio_set(gpio, PIN_SW1_CTL, 0);
+		mdx_gpio_set(gpio, PIN_GPS_AMP_EN, 1);
 	}
 }
 

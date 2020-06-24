@@ -59,7 +59,7 @@ board_init(void)
 	if (!dev)
 		panic("gpio dev not found");
 	nrf_gpio_pincfg(dev, PIN_MC_INTA, 0);
-	mdx_gpio_configure(dev, 0, PIN_MC_INTA, MDX_GPIO_INPUT);
+	mdx_gpio_configure(dev, PIN_MC_INTA, MDX_GPIO_INPUT);
 
 	/* Configure GPIOTE for mc6470. */
 	dev = mdx_device_lookup_by_name("nrf_gpiote", 0);
