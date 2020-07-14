@@ -45,6 +45,7 @@
 
 #include <dev/gpio/gpio.h>
 
+#include "app.h"
 #include "board.h"
 #include "sensor.h"
 #include "gps.h"
@@ -484,6 +485,8 @@ main(void)
 
 	sensor_init();
 	mdx_usleep(100000);
+
+	app1();
 
 	mqtt_test();
 
