@@ -483,6 +483,7 @@ main(void)
 	ready_to_send = 0;
 
 	sensor_init();
+	mdx_usleep(100000);
 
 	mqtt_test();
 

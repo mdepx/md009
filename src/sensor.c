@@ -224,8 +224,11 @@ sensor_init(void)
 	mc6470_write_reg(i2c, MC6470_MAG, MC6470_MAG_CTRL3, val);
 	mdx_usleep(5000000);
 #endif
+}
 
-	mdx_usleep(100000);
+void
+sensor_test(void)
+{
 
 	while (1) {
 		mc6470_process();
