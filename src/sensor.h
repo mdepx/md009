@@ -27,8 +27,15 @@
 #ifndef _SRC_SENSOR_H_
 #define	_SRC_SENSOR_H_
 
+struct ecompass_data {
+	int16_t	pitch;
+	int16_t	roll;
+	int16_t	azimuth;
+};
+
 void sensor_init(void);
 void sensor_test(void);
 void mc6470_intr(void *arg, int irq);
+int mc6470_process(struct ecompass_data *data);
 
 #endif /* !_SRC_SENSOR_H_ */

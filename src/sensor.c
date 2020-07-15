@@ -54,12 +54,12 @@ mc6470_intr(void *arg, int irq)
 }
 
 static void
-mc6470_ecompass(int16_t mag_x, int16_t mag_y, int16_t mag_z,
+mc6470_ecompass(struct ecompass_data *data,
+    int16_t mag_x, int16_t mag_y, int16_t mag_z,
     int16_t acc_x, int16_t acc_y, int16_t acc_z)
 {
 	double pitch, roll, azimuth;
 	double X_h, Y_h;
-	int16_t p, r, az;
 
 	/* Calculate pitch and roll, in the range (-pi, pi). */
 	pitch = atan2((double) - acc_x,
@@ -78,15 +78,13 @@ mc6470_ecompass(int16_t mag_x, int16_t mag_y, int16_t mag_z,
 	if(azimuth < 0)	/* Convert Azimuth in the range (0, 2pi) */
 		azimuth = 2 * M_PI + azimuth;
 
-	az = (int16_t)(azimuth * 180.0 / M_PI);
-	p = (int16_t)(pitch * 180.0 / M_PI);
-	r = (int16_t)(roll * 180.0 / M_PI);
-
-	printf("pitch %3d, roll %3d, azimuth %3d\n", p, r, az);
+	data->azimuth = (int16_t)(azimuth * 180.0 / M_PI);
+	data->pitch = (int16_t)(pitch * 180.0 / M_PI);
+	data->roll = (int16_t)(roll * 180.0 / M_PI);
 }
 
-static void
-mc6470_process(void)
+int
+mc6470_process(struct ecompass_data *data)
 {
 	int16_t mag_x, mag_y, mag_z;
 	int16_t acc_x, acc_y, acc_z;
@@ -114,12 +112,12 @@ mc6470_process(void)
 		    vals[0], vals[1],
 		    vals[2], vals[3],
 		    vals[4], vals[5]);
-		return;
+		return (-1);
 	}
 
 	if (1 == 0) {
 		printf("%d,%d,%d\n", mag_x, mag_y, mag_z);
-		return;
+		return (-1);
 	}
 
 	if (1 == 0) {
@@ -129,10 +127,12 @@ mc6470_process(void)
 
 		printf("x %d, y %d, z %d, heading %.2f\n",
 		    mag_x, mag_y, mag_z, a);
-		return;
+		return (-1);
 	}
 
-	mc6470_ecompass(mag_x, mag_y, mag_z, acc_x, acc_y, acc_z);
+	mc6470_ecompass(data, mag_x, mag_y, mag_z, acc_x, acc_y, acc_z);
+
+	return (0);
 }
 
 static void
@@ -229,9 +229,12 @@ sensor_init(void)
 void
 sensor_test(void)
 {
+	struct ecompass_data data;
 
 	while (1) {
-		mc6470_process();
+		mc6470_process(&data);
+		printf("pitch %3d, roll %3d, azimuth %3d\n",
+		    data.pitch, data.roll, data.azimuth);
 		mdx_usleep(100000);
 	}
 }

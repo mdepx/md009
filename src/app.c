@@ -28,24 +28,45 @@
 
 #include <lib/cJSON/cJSON.h>
 
+#include "sensor.h"
 #include "app.h"
 
-void
+char *
 app1(void)
 {
-	cJSON *data;
-	cJSON *name;
+	struct ecompass_data data;
+	int error;
+	cJSON *obj;
+	cJSON *p, *r, *az;
 	char *str;
 
 	cJSON_InitHooks(NULL);
 
-	data = cJSON_CreateObject();
+	obj = cJSON_CreateObject();
 
-	name = cJSON_CreateString("AwesomeName");
+	error = mc6470_process(&data);
+	if (error != 0) {
+		printf("cant get mc6470 data\n");
+		return (NULL);
+	}
 
-	cJSON_AddItemToObject(data, "name", name);
+	printf("p %3d r %3d az %3d\n",
+	    data.pitch, data.roll, data.azimuth);
 
-	str = cJSON_Print(data);
+	p = cJSON_CreateNumber(data.pitch);
+	cJSON_AddItemToObject(obj, "pitch", p);
+
+	r = cJSON_CreateNumber(data.roll);
+	cJSON_AddItemToObject(obj, "roll", r);
+
+	az = cJSON_CreateNumber(data.azimuth);
+	cJSON_AddItemToObject(obj, "azimuth", az);
+
+	str = cJSON_Print(obj);
 
 	printf("Str: %s\n", str);
+
+	cJSON_Delete(obj);
+
+	return (str);
 }

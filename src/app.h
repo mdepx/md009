@@ -27,6 +27,6 @@
 #ifndef _SRC_APP_H_
 #define	_SRC_APP_H_
 
-void app1(void);
+char *app1(void);
 
 #endif /* !_SRC_APP_H_ */

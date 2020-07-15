@@ -44,6 +44,7 @@
 
 #include <cJSON/cJSON.h>
 #include <mqtt/mqtt.h>
+#include "app.h"
 #include "mqtt.h"
 #include "lte.h"
 #include "board.h"
@@ -617,12 +618,18 @@ static int
 mqtt_test_publish(void)
 {
 	struct mqtt_request m;
+	char *str;
 	int err;
+
+	/* Get JSON file for sensor data */
+	str = app1();
+	if (str == NULL)
+		return (0);
 
 	memset(&m, 0, sizeof(struct mqtt_request));
 	m.qos = 1;
-	m.data = "test message";
-	m.data_len = 12;
+	m.data = str;
+	m.data_len = strlen(str);
 	m.topic = "test/test";
 	m.topic_len = 9;
 
@@ -633,6 +640,8 @@ mqtt_test_publish(void)
 	}
 
 	printf("%s: publish succeeded\n", __func__);
+
+	free(str);
 
 	return (0);
 }
