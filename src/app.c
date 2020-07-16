@@ -31,23 +31,17 @@
 #include "sensor.h"
 #include "app.h"
 
-char *
-app1(void)
+static int
+ecompass_get(cJSON *obj)
 {
 	struct ecompass_data data;
-	int error;
-	cJSON *obj;
 	cJSON *p, *r, *az;
-	char *str;
-
-	cJSON_InitHooks(NULL);
-
-	obj = cJSON_CreateObject();
+	int error;
 
 	error = mc6470_process(&data);
 	if (error != 0) {
-		printf("cant get mc6470 data\n");
-		return (NULL);
+		printf("Can't get mc6470 data\n");
+		return (-1);
 	}
 
 	printf("p %3d r %3d az %3d\n",
@@ -61,6 +55,25 @@ app1(void)
 
 	az = cJSON_CreateNumber(data.azimuth);
 	cJSON_AddItemToObject(obj, "azimuth", az);
+
+	return (0);
+}
+
+char *
+app1(void)
+{
+	cJSON *obj;
+	cJSON *ecompass;
+	char *str;
+
+	cJSON_InitHooks(NULL);
+
+	obj = cJSON_CreateObject();
+	ecompass = cJSON_CreateObject();
+
+	ecompass_get(ecompass);
+
+	cJSON_AddItemToObject(obj, "ecompass", ecompass);
 
 	str = cJSON_Print(obj);
 
