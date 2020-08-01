@@ -141,12 +141,12 @@ sw_ctl(bool gps_enable, bool onboard_antenna)
 	/* LED1 */
 	nrf_gpio_pincfg(gpio, PIN_LED1, reg);
 	mdx_gpio_configure(gpio, PIN_LED1, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(gpio, PIN_LED1, 0);
+	mdx_gpio_set(gpio, PIN_LED1, 1);
 
 	/* LED2 */
 	nrf_gpio_pincfg(gpio, PIN_LED2, reg);
 	mdx_gpio_configure(gpio, PIN_LED2, MDX_GPIO_OUTPUT);
-	mdx_gpio_set(gpio, PIN_LED2, 0);
+	mdx_gpio_set(gpio, PIN_LED2, 1);
 
 	if (gps_enable == false) {
 		/* LTE antenna */
